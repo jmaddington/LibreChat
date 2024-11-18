@@ -197,6 +197,7 @@ const loadTools = async ({
   };
 
   const toolAuthFields = {};
+
   toolAuthFields['flux'] = ['FLUX_API_KEY'];
 
   availableTools.forEach((tool) => {
