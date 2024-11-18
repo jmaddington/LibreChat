@@ -1,15 +1,10 @@
 const express = require('express');
-const router = express.Router();
-const multer = require('multer');
-const { requireJwtAuth } = require('~/server/middleware/');
 const { speechToText } = require('~/server/services/Files/Audio');
 const WebSocket = require('ws');
 
-const upload = multer();
+const router = express.Router();
 
-router.post('/', requireJwtAuth, upload.single('audio'), async (req, res) => {
-  await speechToText(req, res);
-});
+router.post('/', speechToText);
 
 const wss = new WebSocket.Server({ noServer: true });
 

@@ -1,11 +1,11 @@
 const { google } = require('googleapis');
 const { Agent, ProxyAgent } = require('undici');
 const { ChatVertexAI } = require('@langchain/google-vertexai');
+const { GoogleVertexAI } = require('@langchain/google-vertexai');
+const { ChatGoogleVertexAI } = require('@langchain/google-vertexai');
 const { ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { GoogleGenerativeAI: GenAI } = require('@google/generative-ai');
-const { GoogleVertexAI } = require('@langchain/community/llms/googlevertexai');
-const { ChatGoogleVertexAI } = require('langchain/chat_models/googlevertexai');
-const { AIMessage, HumanMessage, SystemMessage } = require('langchain/schema');
+const { AIMessage, HumanMessage, SystemMessage } = require('@langchain/core/messages');
 const { encoding_for_model: encodingForModel, get_encoding: getEncoding } = require('tiktoken');
 const {
   validateVisionModel,
@@ -28,7 +28,7 @@ const {
 } = require('./prompts');
 const BaseClient = require('./BaseClient');
 
-const loc = 'us-central1';
+const loc = process.env.GOOGLE_LOC || 'us-central1';
 const publisher = 'google';
 const endpointPrefix = `https://${loc}-aiplatform.googleapis.com`;
 // const apiEndpoint = loc + '-aiplatform.googleapis.com';
@@ -593,6 +593,8 @@ class GoogleClient extends BaseClient {
 
   createLLM(clientOptions) {
     const model = clientOptions.modelName ?? clientOptions.model;
+    clientOptions.location = loc;
+    clientOptions.endpoint = `${loc}-aiplatform.googleapis.com`;
     if (this.project_id && this.isTextModel) {
       logger.debug('Creating Google VertexAI client');
       return new GoogleVertexAI(clientOptions);

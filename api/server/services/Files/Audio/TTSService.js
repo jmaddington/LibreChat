@@ -1,10 +1,10 @@
 const axios = require('axios');
 const { extractEnvVariable, TTSProviders } = require('librechat-data-provider');
-const { logger } = require('~/config');
-const getCustomConfig = require('~/server/services/Config/getCustomConfig');
-const { genAzureEndpoint } = require('~/utils');
 const { getRandomVoiceId, createChunkProcessor, splitTextIntoChunks } = require('./streamAudio');
 const WebSocket = require('ws');
+const { getCustomConfig } = require('~/server/services/Config');
+const { genAzureEndpoint } = require('~/utils');
+const { logger } = require('~/config');
 
 /**
  * Service class for handling Text-to-Speech (TTS) operations.
