@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { extractEnvVariable, TTSProviders } = require('librechat-data-provider');
 const { getRandomVoiceId, createChunkProcessor, splitTextIntoChunks } = require('./streamAudio');
+const WebSocket = require('ws');
 const { getCustomConfig } = require('~/server/services/Config');
 const { genAzureEndpoint } = require('~/utils');
 const { logger } = require('~/config');
@@ -425,6 +426,26 @@ class TTSService {
       }
     }
   }
+
+  /**
+   * Handles WebSocket connection for real-time TTS.
+   * @param {WebSocket} ws - The WebSocket connection.
+   */
+  async handleWebSocketConnection(ws) {
+    ws.on('message', async (message) => {
+      const { text, voice } = JSON.parse(message);
+      const req = { body: { input: text, voice } };
+      const res = {
+        setHeader: () => {},
+        write: (data) => ws.send(data),
+        end: () => ws.close(),
+        status: (statusCode) => ({
+          json: (data) => ws.send(JSON.stringify({ statusCode, ...data })),
+        }),
+      };
+      await this.streamAudio(req, res);
+    });
+  }
 }
 
 /**
@@ -461,6 +482,16 @@ async function streamAudio(req, res) {
 }
 
 /**
+ * Wrapper function for handling WebSocket connection.
+ * @param {WebSocket} ws - The WebSocket connection.
+ * @returns {Promise<void>}
+ */
+async function handleWebSocketConnection(ws) {
+  const ttsService = await createTTSService();
+  await ttsService.handleWebSocketConnection(ws);
+}
+
+/**
  * Wrapper function to get the configured TTS provider.
  * @async
  * @returns {Promise<string>} A promise that resolves to the name of the configured provider.
@@ -474,4 +505,5 @@ module.exports = {
   textToSpeech,
   streamAudio,
   getProvider,
+  handleWebSocketConnection,
 };
