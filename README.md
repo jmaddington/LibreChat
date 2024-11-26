@@ -11,3 +11,4 @@ This fork is a personal project to add a few features to LibreChat and integrate
 - Web Navigator plugin added to the plugins list.
 - Flux AI plugin added to the plugins list.
 - Websocket support for OpenAI speech (merged from [text](https://github.com/danny-avila/LibreChat/tree/berry-13/feat-openai-realtime-speech))
+
