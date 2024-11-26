@@ -36,6 +36,7 @@ function useTextToSpeechExternal({
   const [downloadFile, setDownloadFile] = useState(false);
 
   const promiseAudioRef = useRef<HTMLAudioElement | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   /* Global Audio Variables */
   const globalIsFetching = useRecoilValue(store.globalAudioFetchingFamily(index));
@@ -187,6 +188,25 @@ function useTextToSpeechExternal({
   }, [isProcessing, globalIsFetching, globalIsPlaying, isLast]);
 
   const { data: voicesData = [] } = useVoicesQuery();
+
+  useEffect(() => {
+    wsRef.current = new WebSocket('ws://localhost:3080/api/files/speech/tts');
+    wsRef.current.onmessage = (event) => {
+      const data = event.data;
+      const audioBlob = new Blob([data], { type: 'audio/mpeg' });
+      const blobUrl = URL.createObjectURL(audioBlob);
+      autoPlayAudio(blobUrl);
+    };
+    wsRef.current.onerror = (error) => {
+      showToast({ message: `WebSocket error: ${error}`, status: 'error' });
+    };
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [showToast]);
 
   return {
     generateSpeechExternal,

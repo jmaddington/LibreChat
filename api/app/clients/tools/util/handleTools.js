@@ -14,6 +14,8 @@ const {
   TraversaalSearch,
   StructuredWolfram,
   TavilySearchResults,
+  FluxAPI,
+  WebNavigator,
 } = require('../');
 const { primeFiles } = require('~/server/services/Files/Code/process');
 const createFileSearchTool = require('./createFileSearchTool');
@@ -156,6 +158,8 @@ const loadTools = async ({
     'azure-ai-search': StructuredACS,
     traversaal_search: TraversaalSearch,
     tavily_search_results_json: TavilySearchResults,
+    flux: FluxAPI,
+    WebNavigator: WebNavigator,
   };
 
   const customConstructors = {
@@ -191,9 +195,13 @@ const loadTools = async ({
     dalle: imageGenOptions,
     'dall-e': imageGenOptions,
     'stable-diffusion': imageGenOptions,
+    'flux' : imageGenOptions,
   };
 
   const toolAuthFields = {};
+  toolAuthFields['flux'] = ['FLUX_API_KEY']; //I'm not sure if this is correct
+
+  toolAuthFields['flux'] = ['FLUX_API_KEY'];
 
   availableTools.forEach((tool) => {
     if (customConstructors[tool.pluginKey]) {

@@ -22,6 +22,7 @@ const useSpeechToTextExternal = (onTranscriptionComplete: (text: string) => void
   const audioStream = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   const { mutate: processAudio, isLoading: isProcessing } = useSpeechToTextMutation({
     onSuccess: (data) => {
@@ -136,6 +137,9 @@ const useSpeechToTextExternal = (onTranscriptionComplete: (text: string) => void
         mediaRecorderRef.current = new MediaRecorder(audioStream.current);
         mediaRecorderRef.current.addEventListener('dataavailable', (event: BlobEvent) => {
           audioChunks.push(event.data);
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(event.data);
+          }
         });
         mediaRecorderRef.current.addEventListener('stop', handleStop);
         mediaRecorderRef.current.start(100);
@@ -223,6 +227,32 @@ const useSpeechToTextExternal = (onTranscriptionComplete: (text: string) => void
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isListening]);
+
+  useEffect(() => {
+    if (isExternalSTTEnabled) {
+      wsRef.current = new WebSocket('ws://localhost:3080/api/files/speech/stt');
+      wsRef.current.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.text) {
+          setText(data.text);
+          if (autoSendText > -1 && speechToText && data.text.length > 0) {
+            setTimeout(() => {
+              onTranscriptionComplete(data.text);
+            }, autoSendText * 1000);
+          }
+        }
+      };
+      wsRef.current.onerror = (error) => {
+        showToast({ message: `WebSocket error: ${error}`, status: 'error' });
+      };
+    }
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [isExternalSTTEnabled, autoSendText, speechToText, onTranscriptionComplete, showToast]);
 
   return {
     isListening,
