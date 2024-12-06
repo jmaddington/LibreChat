@@ -32,7 +32,6 @@ export default function Nav({ links, isCollapsed, resize, defaultActive }: NavPr
                     <TooltipAnchor
                       description={localize(link.title)}
                       side="left"
-                      key={`nav-link-${index}`}
                       render={
                         <Button
                           variant="ghost"

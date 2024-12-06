@@ -1,22 +1,18 @@
 const express = require('express');
-const { PermissionTypes, Permissions } = require('librechat-data-provider');
+
+const router = express.Router();
 const {
   setHeaders,
   handleAbort,
   // validateModel,
-  generateCheckAccess,
-  validateConvoAccess,
+  // validateEndpoint,
   buildEndpointOption,
 } = require('~/server/middleware');
 const { initializeClient } = require('~/server/services/Endpoints/agents');
 const AgentController = require('~/server/controllers/agents/request');
 const addTitle = require('~/server/services/Endpoints/agents/title');
 
-const router = express.Router();
-
 router.post('/abort', handleAbort());
-
-const checkAgentAccess = generateCheckAccess(PermissionTypes.AGENTS, [Permissions.USE]);
 
 /**
  * @route POST /
@@ -29,8 +25,7 @@ const checkAgentAccess = generateCheckAccess(PermissionTypes.AGENTS, [Permission
 router.post(
   '/',
   // validateModel,
-  checkAgentAccess,
-  validateConvoAccess,
+  // validateEndpoint,
   buildEndpointOption,
   setHeaders,
   async (req, res, next) => {

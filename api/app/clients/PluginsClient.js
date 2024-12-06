@@ -105,7 +105,7 @@ class PluginsClient extends OpenAIClient {
       chatHistory: new ChatMessageHistory(pastMessages),
     });
 
-    const { loadedTools } = await loadTools({
+    this.tools = await loadTools({
       user,
       model,
       tools: this.options.tools,
@@ -119,14 +119,11 @@ class PluginsClient extends OpenAIClient {
         processFileURL,
         message,
       },
-      useSpecs: true,
     });
 
-    if (loadedTools.length === 0) {
+    if (this.tools.length === 0) {
       return;
     }
-
-    this.tools = loadedTools;
 
     logger.debug('[PluginsClient] Requested Tools', this.options.tools);
     logger.debug(

@@ -8,7 +8,6 @@ import {
   EModelEndpoint,
   codeTypeMapping,
   mergeFileConfig,
-  isAgentsEndpoint,
   isAssistantsEndpoint,
   defaultAssistantsVersion,
   fileConfig as defaultFileConfig,
@@ -39,7 +38,6 @@ const useFileHandling = (params?: UseFileHandling) => {
   const [errors, setErrors] = useState<string[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const { startUploadTimer, clearUploadTimer } = useDelayedUploadToast();
-  const [toolResource, setToolResource] = useState<string | undefined>();
   const { files, setFiles, setFilesLoading, conversation } = useChatContext();
   const setError = (error: string) => setErrors((prevErrors) => [...prevErrors, error]);
   const { addFile, replaceFile, updateFileById, deleteFileById } = useUpdateFiles(
@@ -149,9 +147,6 @@ const useFileHandling = (params?: UseFileHandling) => {
             : error?.response?.data?.message ?? 'com_error_files_upload';
         setError(errorMessage);
       },
-      onMutate: () => {
-        setToolResource(undefined);
-      },
     },
     abortControllerRef.current?.signal,
   );
@@ -180,18 +175,6 @@ const useFileHandling = (params?: UseFileHandling) => {
         if (value) {
           formData.append(key, value);
         }
-      }
-    }
-
-    if (isAgentsEndpoint(endpoint)) {
-      if (!agent_id) {
-        formData.append('message_file', 'true');
-      }
-      if (toolResource != null) {
-        formData.append('tool_resource', toolResource);
-      }
-      if (conversation?.agent_id != null && formData.get('agent_id') == null) {
-        formData.append('agent_id', conversation.agent_id);
       }
     }
 
@@ -394,7 +377,6 @@ const useFileHandling = (params?: UseFileHandling) => {
 
   return {
     handleFileChange,
-    setToolResource,
     handleFiles,
     abortUpload,
     setFiles,

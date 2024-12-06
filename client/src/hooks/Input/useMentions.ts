@@ -5,17 +5,17 @@ import {
   useGetEndpointsQuery,
 } from 'librechat-data-provider/react-query';
 import {
-  alternateName,
-  EModelEndpoint,
   getConfigDefaults,
+  EModelEndpoint,
+  alternateName,
   isAssistantsEndpoint,
 } from 'librechat-data-provider';
-import type { TAssistantsMap, TEndpointsConfig } from 'librechat-data-provider';
+import type { AssistantsEndpoint, TAssistantsMap, TEndpointsConfig } from 'librechat-data-provider';
 import type { MentionOption } from '~/common';
 import useAssistantListMap from '~/hooks/Assistants/useAssistantListMap';
-import { useGetPresetsQuery, useListAgentsQuery } from '~/data-provider';
 import { mapEndpoints, getPresetTitle } from '~/utils';
 import { EndpointIcon } from '~/components/Endpoints';
+import { useGetPresetsQuery } from '~/data-provider';
 
 const defaultInterface = getConfigDefaults().interface;
 
@@ -25,7 +25,7 @@ const assistantMapFn =
     assistantMap,
     endpointsConfig,
   }: {
-    endpoint: EModelEndpoint | string;
+    endpoint: AssistantsEndpoint;
     assistantMap: TAssistantsMap;
     endpointsConfig: TEndpointsConfig;
   }) =>
@@ -65,27 +65,6 @@ export default function useMentions({
       description,
     })),
   );
-  const { data: agentsList = null } = useListAgentsQuery(undefined, {
-    select: (res) => {
-      const { data } = res;
-      return data.map(({ id, name, avatar }) => ({
-        value: id,
-        label: name ?? '',
-        type: EModelEndpoint.agents,
-        icon: EndpointIcon({
-          conversation: {
-            agent_id: id,
-            endpoint: EModelEndpoint.agents,
-            iconURL: avatar?.filepath,
-          },
-          containerClassName: 'shadow-stroke overflow-hidden rounded-full',
-          endpointsConfig: endpointsConfig,
-          context: 'menu-item',
-          size: 20,
-        }),
-      }));
-    },
-  });
   const assistantListMap = useMemo(
     () => ({
       [EModelEndpoint.assistants]: listMap[EModelEndpoint.assistants]
@@ -122,7 +101,7 @@ export default function useMentions({
       validEndpoints = endpoints.filter((endpoint) => !isAssistantsEndpoint(endpoint));
     }
     const mentions = [
-      ...(modelSpecs.length > 0 ? modelSpecs : []).map((modelSpec) => ({
+      ...(modelSpecs?.length > 0 ? modelSpecs : []).map((modelSpec) => ({
         value: modelSpec.name,
         label: modelSpec.label,
         description: modelSpec.description,
@@ -137,9 +116,9 @@ export default function useMentions({
         }),
         type: 'modelSpec' as const,
       })),
-      ...(interfaceConfig.endpointsMenu === true ? validEndpoints : []).map((endpoint) => ({
+      ...(interfaceConfig.endpointsMenu ? validEndpoints : []).map((endpoint) => ({
         value: endpoint,
-        label: alternateName[endpoint as string] ?? endpoint ?? '',
+        label: alternateName[endpoint] ?? endpoint ?? '',
         type: 'endpoint' as const,
         icon: EndpointIcon({
           conversation: { endpoint },
@@ -148,14 +127,13 @@ export default function useMentions({
           size: 20,
         }),
       })),
-      ...(agentsList ?? []),
       ...(endpointsConfig?.[EModelEndpoint.assistants] && includeAssistants
         ? assistantListMap[EModelEndpoint.assistants] || []
         : []),
       ...(endpointsConfig?.[EModelEndpoint.azureAssistants] && includeAssistants
         ? assistantListMap[EModelEndpoint.azureAssistants] || []
         : []),
-      ...((interfaceConfig.presets === true ? presets : [])?.map((preset, index) => ({
+      ...((interfaceConfig.presets ? presets : [])?.map((preset, index) => ({
         value: preset.presetId ?? `preset-${index}`,
         label: preset.title ?? preset.modelLabel ?? preset.chatGptLabel ?? '',
         description: getPresetTitle(preset, true),
@@ -176,7 +154,6 @@ export default function useMentions({
     presets,
     endpoints,
     modelSpecs,
-    agentsList,
     assistantMap,
     endpointsConfig,
     assistantListMap,
@@ -189,7 +166,6 @@ export default function useMentions({
     options,
     presets,
     modelSpecs,
-    agentsList,
     modelsConfig,
     endpointsConfig,
     assistantListMap,

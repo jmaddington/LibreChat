@@ -61,7 +61,7 @@ describe('BaseClient', () => {
   const options = {
     // debug: true,
     modelOptions: {
-      model: 'gpt-4o-mini',
+      model: 'gpt-3.5-turbo',
       temperature: 0,
     },
   };

@@ -97,7 +97,6 @@ async function encodeAndFormat(req, files, endpoint, mode) {
       filepath: file.filepath,
       filename: file.filename,
       embedded: !!file.embedded,
-      metadata: file.metadata,
     };
 
     if (file.height && file.width) {

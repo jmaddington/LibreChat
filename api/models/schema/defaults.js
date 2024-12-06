@@ -93,10 +93,6 @@ const conversationPreset = {
   imageDetail: {
     type: String,
   },
-  /* agents */
-  agent_id: {
-    type: String,
-  },
   /* assistants */
   assistant_id: {
     type: String,

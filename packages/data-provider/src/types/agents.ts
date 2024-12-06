@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-namespace */
 import { StepTypes, ContentTypes, ToolCallTypes } from './runs';
 import type { FunctionToolCall } from './assistants';
-import type { TAttachment } from 'src/schemas';
 
 export namespace Agents {
   export type MessageType = 'human' | 'ai' | 'generic' | 'system' | 'function' | 'tool' | 'remove';
@@ -219,14 +218,3 @@ export namespace Agents {
   }
   export type ContentType = ContentTypes.TEXT | ContentTypes.IMAGE_URL | string;
 }
-
-export type ToolCallResult = {
-  user: string;
-  toolId: string;
-  result?: unknown;
-  messageId: string;
-  partIndex?: number;
-  blockIndex?: number;
-  conversationId: string;
-  attachments?: TAttachment[];
-};

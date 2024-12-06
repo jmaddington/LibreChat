@@ -41,7 +41,7 @@ export default function useMessageActions(props: TMessageActions) {
     [isMultiMessage, addedConvo, rootConvo],
   );
 
-  const agentsMap = useAgentsMapContext();
+  const agentMap = useAgentsMapContext();
   const assistantMap = useAssistantsMapContext();
 
   const { text, content, messageId = null, isCreatedByUser } = message ?? {};
@@ -68,20 +68,20 @@ export default function useMessageActions(props: TMessageActions) {
       return undefined;
     }
 
-    if (!agentsMap) {
+    if (!agentMap) {
       return undefined;
     }
 
     const modelKey = message?.model ?? '';
     if (modelKey) {
-      return agentsMap[modelKey];
+      return agentMap[modelKey];
     }
 
     const agentId = conversation?.agent_id ?? '';
     if (agentId) {
-      return agentsMap[agentId];
+      return agentMap[agentId];
     }
-  }, [agentsMap, conversation?.agent_id, conversation?.endpoint, message?.model]);
+  }, [agentMap, conversation?.agent_id, conversation?.endpoint, message?.model]);
 
   const isSubmitting = useMemo(
     () => (isMultiMessage === true ? isSubmittingAdditional : isSubmittingRoot),

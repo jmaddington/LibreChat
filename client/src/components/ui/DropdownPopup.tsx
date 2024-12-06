@@ -1,6 +1,5 @@
 import React from 'react';
 import * as Ariakit from '@ariakit/react';
-import { cn } from '~/utils';
 
 interface DropdownProps {
   trigger: React.ReactNode;
@@ -16,21 +15,11 @@ interface DropdownProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   className?: string;
-  iconClassName?: string;
   anchor?: { x: string; y: string };
-  modal?: boolean;
   menuId: string;
 }
 
-const DropdownPopup: React.FC<DropdownProps> = ({
-  trigger,
-  items,
-  isOpen,
-  setIsOpen,
-  menuId,
-  modal,
-  iconClassName,
-}) => {
+const DropdownPopup: React.FC<DropdownProps> = ({ trigger, items, isOpen, setIsOpen, menuId }) => {
   const menu = Ariakit.useMenuStore({ open: isOpen, setOpen: setIsOpen });
 
   return (
@@ -38,9 +27,8 @@ const DropdownPopup: React.FC<DropdownProps> = ({
       {trigger}
       <Ariakit.Menu
         id={menuId}
-        className="absolute z-50 mt-2 overflow-hidden rounded-lg bg-header-primary p-1.5 shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring-primary"
+        className="z-50 mt-2 overflow-hidden rounded-lg bg-header-primary p-1.5 shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring-primary"
         gutter={8}
-        modal={modal}
       >
         {items
           .filter((item) => item.show !== false)
@@ -61,7 +49,7 @@ const DropdownPopup: React.FC<DropdownProps> = ({
                 }}
               >
                 {item.icon != null && (
-                  <span className={cn('mr-2 h-5 w-5', iconClassName)} aria-hidden="true">
+                  <span className="mr-2 h-5 w-5" aria-hidden="true">
                     {item.icon}
                   </span>
                 )}

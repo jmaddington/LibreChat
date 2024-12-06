@@ -127,7 +127,6 @@ const AskController = async (req, res, next, initializeClient, addTitle) => {
       },
     };
 
-    /** @type {TMessage} */
     let response = await client.sendMessage(text, messageOptions);
     response.endpoint = endpointOption.endpoint;
 
@@ -151,13 +150,11 @@ const AskController = async (req, res, next, initializeClient, addTitle) => {
       });
       res.end();
 
-      if (!client.savedMessageIds.has(response.messageId)) {
-        await saveMessage(
-          req,
-          { ...response, user },
-          { context: 'api/server/controllers/AskController.js - response end' },
-        );
-      }
+      await saveMessage(
+        req,
+        { ...response, user },
+        { context: 'api/server/controllers/AskController.js - response end' },
+      );
     }
 
     if (!client.skipSaveUserMessage) {

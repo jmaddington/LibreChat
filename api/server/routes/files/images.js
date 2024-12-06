@@ -1,12 +1,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const express = require('express');
-const { isAgentsEndpoint } = require('librechat-data-provider');
-const {
-  filterFile,
-  processImageFile,
-  processAgentFileUpload,
-} = require('~/server/services/Files/process');
+const { filterFile, processImageFile } = require('~/server/services/Files/process');
 const { logger } = require('~/config');
 
 const router = express.Router();
@@ -15,16 +10,12 @@ router.post('/', async (req, res) => {
   const metadata = req.body;
 
   try {
-    filterFile({ req, image: true });
+    filterFile({ req, file: req.file, image: true });
 
     metadata.temp_file_id = metadata.file_id;
     metadata.file_id = req.file_id;
 
-    if (isAgentsEndpoint(metadata.endpoint) && metadata.tool_resource != null) {
-      return await processAgentFileUpload({ req, res, metadata });
-    }
-
-    await processImageFile({ req, res, metadata });
+    await processImageFile({ req, res, file: req.file, metadata });
   } catch (error) {
     // TODO: delete remote file if it exists
     logger.error('[/files/images] Error processing file:', error);

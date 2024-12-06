@@ -26,9 +26,6 @@ const convoSchema = mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
     },
     ...conversationPreset,
-    agent_id: {
-      type: String,
-    },
     // for bingAI only
     bingConversationId: {
       type: String,
@@ -49,9 +46,6 @@ const convoSchema = mongoose.Schema(
       type: [String],
       default: [],
       meiliIndex: true,
-    },
-    files: {
-      type: [String],
     },
   },
   { timestamps: true },

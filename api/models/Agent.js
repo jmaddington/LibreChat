@@ -118,43 +118,36 @@ const addAgentResourceFile = async ({ agent_id, tool_resource, file_id }) => {
 };
 
 /**
- * Removes multiple resource files from an agent in a single update.
+ * Removes a resource file id from an agent.
  * @param {object} params
+ * @param {ServerRequest} params.req
  * @param {string} params.agent_id
- * @param {Array<{tool_resource: string, file_id: string}>} params.files
+ * @param {string} params.tool_resource
+ * @param {string} params.file_id
  * @returns {Promise<Agent>} The updated agent.
  */
-const removeAgentResourceFiles = async ({ agent_id, files }) => {
+const removeAgentResourceFile = async ({ agent_id, tool_resource, file_id }) => {
   const searchParameter = { id: agent_id };
   const agent = await getAgent(searchParameter);
 
   if (!agent) {
-    throw new Error('Agent not found for removing resource files');
+    throw new Error('Agent not found for removing resource file');
   }
 
-  const tool_resources = { ...agent.tool_resources } || {};
+  const tool_resources = agent.tool_resources || {};
 
-  const filesByResource = files.reduce((acc, { tool_resource, file_id }) => {
-    if (!acc[tool_resource]) {
-      acc[tool_resource] = new Set();
+  if (tool_resources[tool_resource] && tool_resources[tool_resource].file_ids) {
+    tool_resources[tool_resource].file_ids = tool_resources[tool_resource].file_ids.filter(
+      (id) => id !== file_id,
+    );
+
+    if (tool_resources[tool_resource].file_ids.length === 0) {
+      delete tool_resources[tool_resource];
     }
-    acc[tool_resource].add(file_id);
-    return acc;
-  }, {});
-
-  Object.entries(filesByResource).forEach(([resource, fileIds]) => {
-    if (tool_resources[resource] && tool_resources[resource].file_ids) {
-      tool_resources[resource].file_ids = tool_resources[resource].file_ids.filter(
-        (id) => !fileIds.has(id),
-      );
-
-      if (tool_resources[resource].file_ids.length === 0) {
-        delete tool_resources[resource];
-      }
-    }
-  });
+  }
 
   const updateData = { tool_resources };
+
   return await updateAgent(searchParameter, updateData);
 };
 
@@ -288,5 +281,5 @@ module.exports = {
   getListAgents,
   updateAgentProjects,
   addAgentResourceFile,
-  removeAgentResourceFiles,
+  removeAgentResourceFile,
 };

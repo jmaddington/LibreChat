@@ -111,6 +111,7 @@ const getAgentHandler = async (req, res) => {
         isCollaborative: agent.isCollaborative,
       });
     }
+
     return res.status(200).json(agent);
   } catch (error) {
     logger.error('[/Agents/:id] Error retrieving agent', error);
@@ -131,23 +132,15 @@ const updateAgentHandler = async (req, res) => {
   try {
     const id = req.params.id;
     const { projectIds, removeProjectIds, ...updateData } = req.body;
-    const isAdmin = req.user.role === SystemRoles.ADMIN;
-    const existingAgent = await getAgent({ id });
-    const isAuthor = existingAgent.author.toString() === req.user.id;
 
-    if (!existingAgent) {
-      return res.status(404).json({ error: 'Agent not found' });
+    let updatedAgent;
+    const query = { id, author: req.user.id };
+    if (req.user.role === SystemRoles.ADMIN) {
+      delete query.author;
     }
-    const hasEditPermission = existingAgent.isCollaborative || isAdmin || isAuthor;
-
-    if (!hasEditPermission) {
-      return res.status(403).json({
-        error: 'You do not have permission to modify this non-collaborative agent',
-      });
+    if (Object.keys(updateData).length > 0) {
+      updatedAgent = await updateAgent(query, updateData);
     }
-
-    let updatedAgent =
-      Object.keys(updateData).length > 0 ? await updateAgent({ id }, updateData) : existingAgent;
 
     if (projectIds || removeProjectIds) {
       updatedAgent = await updateAgentProjects({

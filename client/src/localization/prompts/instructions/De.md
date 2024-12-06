@@ -1091,7 +1091,7 @@ Write a prompt that is mindful of the nuances in the language with respect to it
   - **english**: Preset
   - **translated**: Voreinstellung
 
-- **com_ui_saved**:
+- **com_endpoint_preset_saved**:
   - **english**: Saved!
   - **translated**: Gespeichert!
 

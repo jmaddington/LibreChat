@@ -9,7 +9,6 @@ import HoverButtons from '~/components/Chat/Messages/HoverButtons';
 import Icon from '~/components/Chat/Messages/MessageIcon';
 import { Plugin } from '~/components/Messages/Content';
 import SubRow from '~/components/Chat/Messages/SubRow';
-import { MessageContext } from '~/Providers';
 import { useMessageActions } from '~/hooks';
 import { cn, logger } from '~/utils';
 import store from '~/store';
@@ -60,10 +59,9 @@ const MessageRender = memo(
     const fontSize = useRecoilValue(store.fontSize);
     const handleRegenerateMessage = useCallback(() => regenerateMessage(), [regenerateMessage]);
     const { isCreatedByUser, error, unfinished } = msg ?? {};
-    const hasNoChildren = !(msg?.children?.length ?? 0);
     const isLast = useMemo(
-      () => hasNoChildren && (msg?.depth === latestMessage?.depth || msg?.depth === -1),
-      [hasNoChildren, msg?.depth, latestMessage?.depth],
+      () => !msg?.children?.length && (msg?.depth === latestMessage?.depth || msg?.depth === -1),
+      [msg?.children, msg?.depth, latestMessage?.depth],
     );
 
     if (!msg) {
@@ -124,31 +122,24 @@ const MessageRender = memo(
           <h2 className={cn('select-none font-semibold', fontSize)}>{messageLabel}</h2>
           <div className="flex-col gap-1 md:gap-3">
             <div className="flex max-w-full flex-grow flex-col gap-0">
-              <MessageContext.Provider
-                value={{
-                  messageId: msg.messageId,
-                  conversationId: conversation?.conversationId,
-                }}
-              >
-                {msg.plugin && <Plugin plugin={msg.plugin} />}
-                <MessageContent
-                  ask={ask}
-                  edit={edit}
-                  isLast={isLast}
-                  text={msg.text || ''}
-                  message={msg}
-                  enterEdit={enterEdit}
-                  error={!!(error ?? false)}
-                  isSubmitting={isSubmitting}
-                  unfinished={unfinished ?? false}
-                  isCreatedByUser={isCreatedByUser ?? true}
-                  siblingIdx={siblingIdx ?? 0}
-                  setSiblingIdx={setSiblingIdx ?? (() => ({}))}
-                />
-              </MessageContext.Provider>
+              {msg.plugin && <Plugin plugin={msg.plugin} />}
+              <MessageContent
+                ask={ask}
+                edit={edit}
+                isLast={isLast}
+                text={msg.text || ''}
+                message={msg}
+                enterEdit={enterEdit}
+                error={!!(error ?? false)}
+                isSubmitting={isSubmitting}
+                unfinished={unfinished ?? false}
+                isCreatedByUser={isCreatedByUser ?? true}
+                siblingIdx={siblingIdx ?? 0}
+                setSiblingIdx={setSiblingIdx ?? (() => ({}))}
+              />
             </div>
           </div>
-          {hasNoChildren && (isSubmittingFamily === true || isSubmitting) ? (
+          {!msg.children?.length && (isSubmittingFamily === true || isSubmitting) ? (
             <PlaceholderRow isCard={isCard} />
           ) : (
             <SubRow classes="text-xs">

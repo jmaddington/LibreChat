@@ -1,7 +1,6 @@
 import * as types from '../types';
 import * as r from '../roles';
 import {
-  Tools,
   Assistant,
   AssistantCreateParams,
   AssistantUpdateParams,
@@ -223,29 +222,18 @@ export type RegistrationOptions = MutationOptions<
   types.TError
 >;
 
-export type UpdatePermVars<T> = {
+export type UpdatePromptPermVars = {
   roleName: string;
-  updates: Partial<T>;
+  updates: Partial<r.TPromptPermissions>;
 };
 
-export type UpdatePromptPermVars = UpdatePermVars<r.TPromptPermissions>;
-
-export type UpdateAgentPermVars = UpdatePermVars<r.TAgentPermissions>;
-
-export type UpdatePermResponse = r.TRole;
+export type UpdatePromptPermResponse = r.TRole;
 
 export type UpdatePromptPermOptions = MutationOptions<
-  UpdatePermResponse,
+  UpdatePromptPermResponse,
   UpdatePromptPermVars,
   unknown,
-  types.TError | null | undefined
->;
-
-export type UpdateAgentPermOptions = MutationOptions<
-  UpdatePermResponse,
-  UpdateAgentPermVars,
-  unknown,
-  types.TError | null | undefined
+  types.TError
 >;
 
 export type UpdateConversationTagOptions = MutationOptions<
@@ -263,24 +251,3 @@ export type AcceptTermsMutationOptions = MutationOptions<
 
 /* Tools */
 export type UpdatePluginAuthOptions = MutationOptions<types.TUser, types.TUpdateUserPlugins>;
-
-export type ToolParamsMap = {
-  [Tools.execute_code]: {
-    lang: string;
-    code: string;
-  };
-};
-
-export type ToolId = keyof ToolParamsMap;
-
-export type ToolParams<T extends ToolId> = ToolParamsMap[T] & {
-  messageId: string;
-  partIndex?: number;
-  blockIndex?: number;
-  conversationId: string;
-};
-export type ToolCallResponse = { result: unknown; attachments?: types.TAttachment[] };
-export type ToolCallMutationOptions<T extends ToolId> = MutationOptions<
-  ToolCallResponse,
-  ToolParams<T>
->;

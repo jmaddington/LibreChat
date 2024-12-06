@@ -129,17 +129,16 @@ const ContentRender = memo(
           <div className="flex-col gap-1 md:gap-3">
             <div className="flex max-w-full flex-grow flex-col gap-0">
               <ContentParts
-                edit={edit}
+                content={msg.content as Array<TMessageContentParts | undefined>}
+                messageId={msg.messageId}
+                isCreatedByUser={msg.isCreatedByUser}
                 isLast={isLast}
+                isSubmitting={isSubmitting}
+                edit={edit}
                 enterEdit={enterEdit}
                 siblingIdx={siblingIdx}
-                messageId={msg.messageId}
-                isSubmitting={isSubmitting}
                 setSiblingIdx={setSiblingIdx}
                 attachments={msg.attachments}
-                isCreatedByUser={msg.isCreatedByUser}
-                conversationId={conversation?.conversationId}
-                content={msg.content as Array<TMessageContentParts | undefined>}
               />
             </div>
           </div>

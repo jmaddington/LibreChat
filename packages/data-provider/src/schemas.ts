@@ -1096,14 +1096,13 @@ export type TBanner = z.infer<typeof tBannerSchema>;
 
 export const compactAgentsSchema = tConversationSchema
   .pick({
-    spec: true,
-    // model: true,
-    iconURL: true,
-    greeting: true,
+    model: true,
     agent_id: true,
-    resendFiles: true,
     instructions: true,
     additional_instructions: true,
+    iconURL: true,
+    greeting: true,
+    spec: true,
   })
   .transform(removeNullishValues)
   .catch(() => ({}));

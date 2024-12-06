@@ -126,9 +126,6 @@ export default function AgentPanel({
         model: _model,
         model_parameters,
         provider: _provider,
-        agent_ids,
-        end_after_tools,
-        hide_sequential_outputs,
       } = data;
 
       const model = _model ?? '';
@@ -146,9 +143,6 @@ export default function AgentPanel({
             tools,
             provider,
             model_parameters,
-            agent_ids,
-            end_after_tools,
-            hide_sequential_outputs,
           },
         });
         return;
@@ -169,9 +163,6 @@ export default function AgentPanel({
         tools,
         provider,
         model_parameters,
-        agent_ids,
-        end_after_tools,
-        hide_sequential_outputs,
       });
     },
     [agent_id, create, update, showToast, localize],

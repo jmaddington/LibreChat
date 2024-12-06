@@ -3,11 +3,10 @@ const { v4 } = require('uuid');
 const axios = require('axios');
 const { getCodeBaseURL } = require('@librechat/agents');
 const {
-  Tools,
-  FileContext,
-  FileSources,
-  imageExtRegex,
   EToolResources,
+  FileContext,
+  imageExtRegex,
+  FileSources,
 } = require('librechat-data-provider');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { convertImage } = require('~/server/services/Files/images/convert');
@@ -111,20 +110,12 @@ function checkIfActive(dateString) {
 async function getSessionInfo(fileIdentifier, apiKey) {
   try {
     const baseURL = getCodeBaseURL();
-    const [path, queryString] = fileIdentifier.split('?');
-    const session_id = path.split('/')[0];
-
-    let queryParams = {};
-    if (queryString) {
-      queryParams = Object.fromEntries(new URLSearchParams(queryString).entries());
-    }
-
+    const session_id = fileIdentifier.split('/')[0];
     const response = await axios({
       method: 'get',
       url: `${baseURL}/files/${session_id}`,
       params: {
         detail: 'summary',
-        ...queryParams,
       },
       headers: {
         'User-Agent': 'LibreChat/1.0',
@@ -133,7 +124,7 @@ async function getSessionInfo(fileIdentifier, apiKey) {
       timeout: 5000,
     });
 
-    return response.data.find((file) => file.name.startsWith(path))?.lastModified;
+    return response.data.find((file) => file.name.startsWith(fileIdentifier))?.lastModified;
   } catch (error) {
     logger.error(`Error fetching session info: ${error.message}`, error);
     return null;
@@ -146,56 +137,29 @@ async function getSessionInfo(fileIdentifier, apiKey) {
  * @param {ServerRequest} options.req
  * @param {Agent['tool_resources']} options.tool_resources
  * @param {string} apiKey
- * @returns {Promise<{
- * files: Array<{ id: string; session_id: string; name: string }>,
- * toolContext: string,
- * }>}
+ * @returns {Promise<Array<{ id: string; session_id: string; name: string }>>}
  */
 const primeFiles = async (options, apiKey) => {
   const { tool_resources } = options;
   const file_ids = tool_resources?.[EToolResources.execute_code]?.file_ids ?? [];
-  const agentResourceIds = new Set(file_ids);
-  const resourceFiles = tool_resources?.[EToolResources.execute_code]?.files ?? [];
-  const dbFiles = ((await getFiles({ file_id: { $in: file_ids } })) ?? []).concat(resourceFiles);
+  const dbFiles = await getFiles({ file_id: { $in: file_ids } });
 
   const files = [];
   const sessions = new Map();
-  let toolContext = '';
-
-  for (let i = 0; i < dbFiles.length; i++) {
-    const file = dbFiles[i];
-    if (!file) {
-      continue;
-    }
-
+  for (const file of dbFiles) {
     if (file.metadata.fileIdentifier) {
-      const [path, queryString] = file.metadata.fileIdentifier.split('?');
-      const [session_id, id] = path.split('/');
-
+      const [session_id, id] = file.metadata.fileIdentifier.split('/');
       const pushFile = () => {
-        if (!toolContext) {
-          toolContext = `- Note: The following files are available in the "${Tools.execute_code}" tool environment:`;
-        }
-        toolContext += `\n\t- /mnt/data/${file.filename}${
-          agentResourceIds.has(file.file_id) ? '' : ' (just attached by user)'
-        }`;
         files.push({
           id,
           session_id,
           name: file.filename,
         });
       };
-
       if (sessions.has(session_id)) {
         pushFile();
         continue;
       }
-
-      let queryParams = {};
-      if (queryString) {
-        queryParams = Object.fromEntries(new URLSearchParams(queryString).entries());
-      }
-
       const reuploadFile = async () => {
         try {
           const { getDownloadStream } = getStrategyFunctions(file.source);
@@ -207,7 +171,6 @@ const primeFiles = async (options, apiKey) => {
             req: options.req,
             stream,
             filename: file.filename,
-            entity_id: queryParams.entity_id,
             apiKey,
           });
           await updateFile({ file_id: file.file_id, metadata: { fileIdentifier } });
@@ -235,7 +198,7 @@ const primeFiles = async (options, apiKey) => {
     }
   }
 
-  return { files, toolContext };
+  return files;
 };
 
 module.exports = {
