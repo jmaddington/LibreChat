@@ -4,7 +4,6 @@ const { CacheKeys } = require('librechat-data-provider');
 const { getVoices, streamAudio, textToSpeech } = require('~/server/services/Files/Audio');
 const { getLogStores } = require('~/cache');
 const { logger } = require('~/config');
-const WebSocket = require('ws');
 
 const router = express.Router();
 const upload = multer();
@@ -40,22 +39,4 @@ router.get('/voices', async (req, res) => {
   await getVoices(req, res);
 });
 
-const wss = new WebSocket.Server({ noServer: true });
-
-wss.on('connection', (ws) => {
-  ws.on('message', async (message) => {
-    const { text, voice } = JSON.parse(message);
-    const req = { body: { input: text, voice } };
-    const res = {
-      setHeader: () => {},
-      write: (data) => ws.send(data),
-      end: () => ws.close(),
-      status: (statusCode) => ({
-        json: (data) => ws.send(JSON.stringify({ statusCode, ...data })),
-      }),
-    };
-    await streamAudio(req, res);
-  });
-});
-
-module.exports = { router, wss };
+module.exports = router;
