@@ -6,7 +6,6 @@ const { extractEnvVariable, STTProviders } = require('librechat-data-provider');
 const { getCustomConfig } = require('~/server/services/Config');
 const { genAzureEndpoint } = require('~/utils');
 const { logger } = require('~/config');
-const WebSocket = require('ws');
 
 /**
  * Service class for handling Speech-to-Text (STT) operations.
@@ -229,24 +228,6 @@ class STTService {
       }
     }
   }
-
-  /**
-   * Handles WebSocket connection for real-time STT.
-   * @param {WebSocket} ws - The WebSocket connection.
-   */
-  async handleWebSocketConnection(ws) {
-    ws.on('message', async (message) => {
-      const audioBuffer = Buffer.from(message);
-      const req = { file: { buffer: audioBuffer } };
-      const res = {
-        json: (data) => ws.send(JSON.stringify(data)),
-        status: (statusCode) => ({
-          json: (data) => ws.send(JSON.stringify({ statusCode, ...data })),
-        }),
-      };
-      await this.processTextToSpeech(req, res);
-    });
-  }
 }
 
 /**
@@ -270,14 +251,4 @@ async function speechToText(req, res) {
   await sttService.processTextToSpeech(req, res);
 }
 
-/**
- * Wrapper function for handling WebSocket connection.
- * @param {WebSocket} ws - The WebSocket connection.
- * @returns {Promise<void>}
- */
-async function handleWebSocketConnection(ws) {
-  const sttService = await createSTTService();
-  await sttService.handleWebSocketConnection(ws);
-}
-
-module.exports = { speechToText, handleWebSocketConnection };
+module.exports = { speechToText };
