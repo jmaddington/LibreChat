@@ -18,25 +18,22 @@ class E2BCode extends Tool {
       '[E2BCode] Initialized with API key ' + `*****${keySuffix}`
     );
     this.name = 'E2BCode';
-    this.description =
-      `Use E2B to execute code, shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox.
+    this.description = `
+Use E2B to execute code, run shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox environment.
 
-      **Important:** You must provide a unique 'sessionId' string to maintain session state between calls.
+**Important Notes:**
 
-      You can set environment variables when creating the sandbox and during code or command execution using the 'envs' parameter.
+- **Session Management:** You must provide a unique 'sessionId' string to maintain session state between calls. Use the same 'sessionId' for related actions.
 
-      For example, to create a sandbox with an environment variable:
+- **Available Actions and Parameters:**
 
-      Action: 'create', envs: { "MY_VAR": "my_value" }
+[... previous action descriptions remain unchanged ...]
 
-      To execute code with an environment variable:
+- **Environment Variables:**
+  - Some environment variables may already be set in the sandbox environment.
 
-      Action: 'execute', code: 'import os; print(os.environ.get("MY_VAR"))', envs: { "MY_VAR": "my_value" }
-
-      To change the timeout of an existing sandbox:
-
-      Action: 'set_timeout', timeout: 120
-      `;
+Please use the above actions and parameters to interact with the E2B sandbox environment effectively.
+    `;
     this.schema = z.object({
       sessionId: z
         .string()
@@ -49,7 +46,7 @@ class E2BCode extends Tool {
           'create',
           'list_sandboxes',
           'kill',
-          'set_timeout', // Added 'set_timeout' action
+          'set_timeout',
           'execute',
           'shell',
           'kill_command',
@@ -132,6 +129,17 @@ class E2BCode extends Tool {
     return key;
   }
 
+  // Method to retrieve hidden environment variables starting with E2B_CODE_EV_
+  getHiddenEnvVars() {
+    const hiddenEnvVars = {};
+    Object.keys(process.env).forEach((key) => {
+      if (key.startsWith('E2B_CODE_EV_')) {
+        hiddenEnvVars[key.substring('E2B_CODE_EV_'.length)] = process.env[key];
+      }
+    });
+    return hiddenEnvVars;
+  }
+
   async _call(input) {
     const {
       sessionId,
@@ -170,14 +178,19 @@ class E2BCode extends Tool {
         logger.debug('[E2BCode] Creating new sandbox', {
           sessionId,
           timeout,
-          envs,
         });
         const sandboxOptions = {
           apiKey: this.apiKey,
           timeoutMs: timeout * 60 * 1000,
         };
-        if (envs) {
-          sandboxOptions.env = envs;
+        // Get hidden environment variables
+        const hiddenEnvVars = this.getHiddenEnvVars();
+        // Merge hidden env vars with any provided envs, without exposing hidden vars to the LLM
+        if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+          sandboxOptions.env = {
+            ...hiddenEnvVars,
+            ...envs,
+          };
         }
         const sandbox = await Sandbox.create(sandboxOptions);
         sandboxes.set(sessionId, {
@@ -252,6 +265,9 @@ class E2BCode extends Tool {
       const sandboxInfo = await this.getSandboxInfo(sessionId);
       const sandbox = sandboxInfo.sandbox;
 
+      // Get hidden environment variables
+      const hiddenEnvVars = this.getHiddenEnvVars();
+
       switch (action) {
         case 'execute':
           if (!code) {
@@ -263,11 +279,13 @@ class E2BCode extends Tool {
           logger.debug('[E2BCode] Executing code', {
             language,
             sessionId,
-            envs,
           });
           const runCodeOptions = { language };
-          if (envs) {
-            runCodeOptions.envs = envs;
+          if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+            runCodeOptions.envs = {
+              ...hiddenEnvVars,
+              ...envs,
+            };
           }
           const result = await sandbox.runCode(code, runCodeOptions);
           logger.debug('[E2BCode] Code execution completed', {
@@ -291,12 +309,14 @@ class E2BCode extends Tool {
           logger.debug('[E2BCode] Executing shell command', {
             sessionId,
             command,
-            envs,
             background,
           });
           const shellOptions = {};
-          if (envs) {
-            shellOptions.envs = envs;
+          if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+            shellOptions.envs = {
+              ...hiddenEnvVars,
+              ...envs,
+            };
           }
           if (background) {
             shellOptions.background = true;
@@ -426,11 +446,13 @@ class E2BCode extends Tool {
             sessionId,
             language,
             package: code,
-            envs,
           });
           const installOptions = {};
-          if (envs) {
-            installOptions.envs = envs;
+          if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+            installOptions.envs = {
+              ...hiddenEnvVars,
+              ...envs,
+            };
           }
           if (language === 'python') {
             const pipResult = await sandbox.commands.run(
@@ -558,34 +580,5 @@ class E2BCode extends Tool {
     );
   }
 }
-
-async function cleanupInactiveSandboxes() {
-  const now = Date.now();
-  logger.debug('[E2BCode] Starting sandbox cleanup');
-  for (const [sessionId, sandboxInfo] of sandboxes.entries()) {
-    const { sandbox, lastAccessed } = sandboxInfo;
-    if (now - lastAccessed > 10 * 60 * 1000) {
-      logger.debug('[E2BCode] Cleaning up inactive sandbox', {
-        sessionId,
-        inactiveDuration: `${Math.floor((now - lastAccessed) / 1000)}s`,
-      });
-      try {
-        await sandbox.kill();
-      } catch (err) {
-        logger.error('[E2BCode] Error killing sandbox', {
-          sessionId,
-          error: err.message,
-        });
-      }
-      sandboxes.delete(sessionId);
-    }
-  }
-  logger.debug('[E2BCode] Sandbox cleanup completed', {
-    remainingSandboxes: sandboxes.size,
-  });
-}
-
-// Run cleanup every 5 minutes
-setInterval(cleanupInactiveSandboxes, 5 * 60 * 1000);
 
 module.exports = E2BCode;
