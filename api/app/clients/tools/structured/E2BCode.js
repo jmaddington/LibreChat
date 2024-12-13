@@ -34,6 +34,7 @@ class E2BCode extends Tool {
         .enum([
           'create',
           'list_sandboxes',
+          'kill', // Added 'kill' action
           'execute',
           'shell',
           'write_file',
@@ -43,7 +44,7 @@ class E2BCode extends Tool {
           'get_host',
         ])
         .describe(
-          'The action to perform: create a new sandbox, list running sandboxes, execute code, run shell command, write file, read file, install package, get file download URL, or get the host+port where the user or you can access the host (i.e., for a web service).'
+          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, write file, read file, install package, get file download URL, or get the host+port where the user or you can access the host (i.e., for a web service).'
         ),
       code: z
         .string()
@@ -159,6 +160,22 @@ class E2BCode extends Tool {
         return JSON.stringify({
           message: 'Active sandboxes found',
           sandboxes: Array.from(sandboxes.keys()),
+        });
+      }
+
+      if (action === 'kill') {
+        if (!sandboxes.has(sessionId)) {
+          logger.error('[E2BCode] No sandbox found to kill', { sessionId });
+          throw new Error(`No sandbox found with sessionId ${sessionId}.`);
+        }
+        logger.debug('[E2BCode] Killing sandbox', { sessionId });
+        const { sandbox } = sandboxes.get(sessionId);
+        await sandbox.kill();
+        sandboxes.delete(sessionId);
+        return JSON.stringify({
+          sessionId,
+          success: true,
+          message: `Sandbox with sessionId ${sessionId} has been killed.`,
         });
       }
 
