@@ -32,6 +32,12 @@ class E2BCode extends Tool {
       To execute code with an environment variable:
 
       Action: 'execute', code: 'import os; print(os.environ.get("MY_VAR"))', envs: { "MY_VAR": "my_value" }
+
+      To run a hosting service as a background task (e.g., Flask), use the 'background' parameter in the 'shell' action and redirect output to a log file using shell syntax.
+
+      For example:
+
+      Action: 'shell', command: 'python app.py > output.log', background: true
       `;
     this.schema = z.object({
       sessionId: z
@@ -47,6 +53,7 @@ class E2BCode extends Tool {
           'kill',
           'execute',
           'shell',
+          'kill_command',
           'write_file',
           'read_file',
           'install',
@@ -54,7 +61,7 @@ class E2BCode extends Tool {
           'get_host',
         ])
         .describe(
-          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, write file, read file, install package, get file download URL, or get the host and port.'
+          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, kill a background command, write file, read file, install package, get file download URL, or get the host and port.'
         ),
       code: z
         .string()
@@ -70,6 +77,18 @@ class E2BCode extends Tool {
         .string()
         .optional()
         .describe('Shell command to execute (required for `shell` action).'),
+      background: z
+        .boolean()
+        .optional()
+        .describe(
+          'Whether to run the shell command in the background (optional, used with `shell` action).'
+        ),
+      commandId: z
+        .string()
+        .optional()
+        .describe(
+          'The ID of the background command to kill (required for `kill_command` action).'
+        ),
       filePath: z
         .string()
         .optional()
@@ -121,10 +140,12 @@ class E2BCode extends Tool {
       language = 'python',
       action,
       command,
+      background = false,
+      commandId,
       filePath,
       fileContent,
       port,
-      timeout = 60, // Default timeout to 60 minutes
+      timeout = 60,
       envs,
     } = input;
 
@@ -143,7 +164,9 @@ class E2BCode extends Tool {
       if (action === 'create') {
         if (sandboxes.has(sessionId)) {
           logger.error('[E2BCode] Sandbox already exists', { sessionId });
-          throw new Error(`Sandbox with sessionId ${sessionId} already exists.`);
+          throw new Error(
+            `Sandbox with sessionId ${sessionId} already exists.`
+          );
         }
         logger.debug('[E2BCode] Creating new sandbox', {
           sessionId,
@@ -152,7 +175,7 @@ class E2BCode extends Tool {
         });
         const sandboxOptions = {
           apiKey: this.apiKey,
-          timeoutMs: timeout * 60 * 1000, // Convert minutes to milliseconds
+          timeoutMs: timeout * 60 * 1000,
         };
         if (envs) {
           sandboxOptions.env = envs;
@@ -161,6 +184,7 @@ class E2BCode extends Tool {
         sandboxes.set(sessionId, {
           sandbox,
           lastAccessed: Date.now(),
+          commands: new Map(),
         });
         return JSON.stringify({
           sessionId,
@@ -198,10 +222,8 @@ class E2BCode extends Tool {
         });
       }
 
-      const sandbox = await this.getSandbox(sessionId);
-      logger.debug('[E2BCode] Sandbox retrieved for session', {
-        sessionId,
-      });
+      const sandboxInfo = await this.getSandboxInfo(sessionId);
+      const sandbox = sandboxInfo.sandbox;
 
       switch (action) {
         case 'execute':
@@ -243,21 +265,77 @@ class E2BCode extends Tool {
             sessionId,
             command,
             envs,
+            background,
           });
           const shellOptions = {};
           if (envs) {
             shellOptions.envs = envs;
           }
-          const shellResult = await sandbox.commands.run(command, shellOptions);
-          logger.debug('[E2BCode] Shell command completed', {
+          if (background) {
+            shellOptions.background = true;
+            const backgroundCommand = await sandbox.commands.run(
+              command,
+              shellOptions
+            );
+            const cmdId = backgroundCommand.id;
+            sandboxInfo.commands.set(cmdId, backgroundCommand);
+            logger.debug('[E2BCode] Background command started', {
+              sessionId,
+              commandId: cmdId,
+            });
+            return JSON.stringify({
+              sessionId,
+              commandId: cmdId,
+              success: true,
+              message: `Background command started with ID ${cmdId}`,
+            });
+          } else {
+            const shellResult = await sandbox.commands.run(
+              command,
+              shellOptions
+            );
+            logger.debug('[E2BCode] Shell command completed', {
+              sessionId,
+              exitCode: shellResult.exitCode,
+            });
+            return JSON.stringify({
+              sessionId,
+              output: shellResult.stdout,
+              error: shellResult.stderr,
+              exitCode: shellResult.exitCode,
+            });
+          }
+
+        case 'kill_command':
+          if (!commandId) {
+            logger.error(
+              '[E2BCode] `commandId` missing for kill_command action',
+              { sessionId }
+            );
+            throw new Error(
+              '`commandId` is required for `kill_command` action.'
+            );
+          }
+          logger.debug('[E2BCode] Killing background command', {
             sessionId,
-            exitCode: shellResult.exitCode,
+            commandId,
           });
+          const cmd = sandboxInfo.commands.get(commandId);
+          if (!cmd) {
+            logger.error('[E2BCode] No command found to kill', {
+              sessionId,
+              commandId,
+            });
+            throw new Error(
+              `No background command found with ID ${commandId}.`
+            );
+          }
+          await cmd.kill();
+          sandboxInfo.commands.delete(commandId);
           return JSON.stringify({
             sessionId,
-            output: shellResult.stdout,
-            error: shellResult.stderr,
-            exitCode: shellResult.exitCode,
+            success: true,
+            message: `Background command with ID ${commandId} has been killed.`,
           });
 
         case 'write_file':
@@ -439,13 +517,13 @@ class E2BCode extends Tool {
     }
   }
 
-  // Method to get an existing sandbox based on sessionId
-  async getSandbox(sessionId) {
+  // Method to get an existing sandbox and its info based on sessionId
+  async getSandboxInfo(sessionId) {
     if (sandboxes.has(sessionId)) {
       logger.debug('[E2BCode] Reusing existing sandbox', { sessionId });
       const sandboxInfo = sandboxes.get(sessionId);
       sandboxInfo.lastAccessed = Date.now();
-      return sandboxInfo.sandbox;
+      return sandboxInfo;
     }
     logger.error('[E2BCode] No sandbox found for session', { sessionId });
     throw new Error(
@@ -454,11 +532,11 @@ class E2BCode extends Tool {
   }
 }
 
-// Function to clean up inactive sandboxes
 async function cleanupInactiveSandboxes() {
   const now = Date.now();
   logger.debug('[E2BCode] Starting sandbox cleanup');
-  for (const [sessionId, { sandbox, lastAccessed }] of sandboxes.entries()) {
+  for (const [sessionId, sandboxInfo] of sandboxes.entries()) {
+    const { sandbox, lastAccessed } = sandboxInfo;
     if (now - lastAccessed > 10 * 60 * 1000) {
       logger.debug('[E2BCode] Cleaning up inactive sandbox', {
         sessionId,
