@@ -8,5 +8,6 @@ This fork is a personal project to add a few features to LibreChat and integrate
 `new/feature/X` - Branches for new features, kept open until they are feature complete and merged.
 
 ## Known Changes from danny-avila/LibreChat
-- Web Navigator plugin added to the plugins list.
-- Flux AI plugin added to the plugins list.
+- E2B.dev code interpreter added to the tools list
+- Web Navigator plugin added to the tools list.
+- Flux AI plugin added to the tools list.
