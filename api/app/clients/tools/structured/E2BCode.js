@@ -126,8 +126,9 @@ class E2BCode extends Tool {
     
     Please use the above actions and parameters to interact with the E2B sandbox environment effectively.
 
-    IMPORTANT NOTE: When running servers such as nginx or flask you MUST start it in the background to get a response! You can either do this through the
-    shell, or use background: true in the execute action. You can then use the get_host action to get the host and port to access the server. Redirect
+    IMPORTANT NOTE: When running servers such as nginx or flask you MUST start it in the background to get a response! You can either do this through pythons popen
+    , or use background: true in the execute action. ADDING AN AMPERSAND TO THE END OF A COMMAND WILL NOT WORK.
+    You can then use the get_host action to get the host and port to access the server. Redirect
     stdout and stderr to a file to debug any issues.
     `;
 
