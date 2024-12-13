@@ -20,9 +20,19 @@ class E2BCode extends Tool {
     this.name = 'E2BCode';
     this.description =
       `Use E2B to execute code, shell commands, manage files, and install packages in an isolated sandbox environment.
-      get_file_downloadurl action is used to generate a download URL for a file in the sandbox, this is for the user to use to download the file.
-       **Important:** You must provide a unique 'sessionId' string to maintain session state between calls.
-       `;
+
+      **Important:** You must provide a unique 'sessionId' string to maintain session state between calls.
+
+      You can set environment variables when creating the sandbox and during code or command execution using the 'envs' parameter.
+
+      For example, to create a sandbox with an environment variable:
+
+      Action: 'create', envs: { "MY_VAR": "my_value" }
+
+      To execute code with an environment variable:
+
+      Action: 'execute', code: 'import os; print(os.environ.get("MY_VAR"))', envs: { "MY_VAR": "my_value" }
+      `;
     this.schema = z.object({
       sessionId: z
         .string()
@@ -34,7 +44,7 @@ class E2BCode extends Tool {
         .enum([
           'create',
           'list_sandboxes',
-          'kill', // Added 'kill' action
+          'kill',
           'execute',
           'shell',
           'write_file',
@@ -44,7 +54,7 @@ class E2BCode extends Tool {
           'get_host',
         ])
         .describe(
-          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, write file, read file, install package, get file download URL, or get the host+port where the user or you can access the host (i.e., for a web service).'
+          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, write file, read file, install package, get file download URL, or get the host and port.'
         ),
       code: z
         .string()
@@ -64,7 +74,7 @@ class E2BCode extends Tool {
         .string()
         .optional()
         .describe(
-          'Path where to read/write file or download file to (required for `write_file`, `read_file`, and `get_file_downloadurl` actions).'
+          'Path for read/write operations (required for `write_file`, `read_file`, and `get_file_downloadurl` actions).'
         ),
       fileContent: z
         .string()
@@ -85,6 +95,12 @@ class E2BCode extends Tool {
         .optional()
         .describe(
           'Timeout in minutes for the sandbox environment. Defaults to 60 minutes.'
+        ),
+      envs: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe(
+          'Environment variables to set when creating the sandbox (used with `create` action) and for specific execution (used with `execute`, `shell`, and `install` actions).'
         ),
     });
   }
@@ -109,6 +125,7 @@ class E2BCode extends Tool {
       fileContent,
       port,
       timeout = 60, // Default timeout to 60 minutes
+      envs,
     } = input;
 
     if (!sessionId) {
@@ -120,9 +137,6 @@ class E2BCode extends Tool {
       action,
       language,
       sessionId,
-      hasCode: !!code,
-      hasCommand: !!command,
-      hasFilePath: !!filePath,
     });
 
     try {
@@ -134,11 +148,16 @@ class E2BCode extends Tool {
         logger.debug('[E2BCode] Creating new sandbox', {
           sessionId,
           timeout,
+          envs,
         });
-        const sandbox = await Sandbox.create({
+        const sandboxOptions = {
           apiKey: this.apiKey,
           timeoutMs: timeout * 60 * 1000, // Convert minutes to milliseconds
-        });
+        };
+        if (envs) {
+          sandboxOptions.env = envs;
+        }
+        const sandbox = await Sandbox.create(sandboxOptions);
         sandboxes.set(sessionId, {
           sandbox,
           lastAccessed: Date.now(),
@@ -192,8 +211,16 @@ class E2BCode extends Tool {
             });
             throw new Error('Code is required for `execute` action.');
           }
-          logger.debug('[E2BCode] Executing code', { language, sessionId });
-          const result = await sandbox.runCode(code, { language });
+          logger.debug('[E2BCode] Executing code', {
+            language,
+            sessionId,
+            envs,
+          });
+          const runCodeOptions = { language };
+          if (envs) {
+            runCodeOptions.envs = envs;
+          }
+          const result = await sandbox.runCode(code, runCodeOptions);
           logger.debug('[E2BCode] Code execution completed', {
             sessionId,
             hasError: !!result.error,
@@ -215,8 +242,13 @@ class E2BCode extends Tool {
           logger.debug('[E2BCode] Executing shell command', {
             sessionId,
             command,
+            envs,
           });
-          const shellResult = await sandbox.commands.run(command);
+          const shellOptions = {};
+          if (envs) {
+            shellOptions.envs = envs;
+          }
+          const shellResult = await sandbox.commands.run(command, shellOptions);
           logger.debug('[E2BCode] Shell command completed', {
             sessionId,
             exitCode: shellResult.exitCode,
@@ -289,10 +321,16 @@ class E2BCode extends Tool {
             sessionId,
             language,
             package: code,
+            envs,
           });
+          const installOptions = {};
+          if (envs) {
+            installOptions.envs = envs;
+          }
           if (language === 'python') {
             const pipResult = await sandbox.commands.run(
-              `pip install ${code}`
+              `pip install ${code}`,
+              installOptions
             );
             logger.debug(
               '[E2BCode] Python package installation completed',
@@ -309,7 +347,8 @@ class E2BCode extends Tool {
             });
           } else if (language === 'javascript' || language === 'typescript') {
             const npmResult = await sandbox.commands.run(
-              `npm install ${code}`
+              `npm install ${code}`,
+              installOptions
             );
             logger.debug(
               '[E2BCode] Node package installation completed',
@@ -409,7 +448,9 @@ class E2BCode extends Tool {
       return sandboxInfo.sandbox;
     }
     logger.error('[E2BCode] No sandbox found for session', { sessionId });
-    throw new Error(`No sandbox found for sessionId ${sessionId}. Please create one using the 'create' action.`);
+    throw new Error(
+      `No sandbox found for sessionId ${sessionId}. Please create one using the 'create' action.`
+    );
   }
 }
 
