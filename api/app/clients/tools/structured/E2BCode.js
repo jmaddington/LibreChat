@@ -19,7 +19,7 @@ class E2BCode extends Tool {
     );
     this.name = 'E2BCode';
     this.description =
-      `Use E2B to execute code, shell commands, manage files, and install packages in an isolated sandbox environment.
+      `Use E2B to execute code, shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox.
 
       **Important:** You must provide a unique 'sessionId' string to maintain session state between calls.
 
@@ -33,11 +33,9 @@ class E2BCode extends Tool {
 
       Action: 'execute', code: 'import os; print(os.environ.get("MY_VAR"))', envs: { "MY_VAR": "my_value" }
 
-      To run a hosting service as a background task (e.g., Flask), use the 'background' parameter in the 'shell' action and redirect output to a log file using shell syntax.
+      To change the timeout of an existing sandbox:
 
-      For example:
-
-      Action: 'shell', command: 'python app.py > output.log', background: true
+      Action: 'set_timeout', timeout: 120
       `;
     this.schema = z.object({
       sessionId: z
@@ -51,6 +49,7 @@ class E2BCode extends Tool {
           'create',
           'list_sandboxes',
           'kill',
+          'set_timeout', // Added 'set_timeout' action
           'execute',
           'shell',
           'kill_command',
@@ -61,7 +60,7 @@ class E2BCode extends Tool {
           'get_host',
         ])
         .describe(
-          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, execute code, run shell command, kill a background command, write file, read file, install package, get file download URL, or get the host and port.'
+          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, change sandbox timeout, execute code, run shell command, kill a background command, write file, read file, install package, get file download URL, or get the host and port.'
         ),
       code: z
         .string()
@@ -219,6 +218,34 @@ class E2BCode extends Tool {
           sessionId,
           success: true,
           message: `Sandbox with sessionId ${sessionId} has been killed.`,
+        });
+      }
+
+      // Handle 'set_timeout' action
+      if (action === 'set_timeout') {
+        if (!sandboxes.has(sessionId)) {
+          logger.error('[E2BCode] No sandbox found to set timeout', {
+            sessionId,
+          });
+          throw new Error(`No sandbox found with sessionId ${sessionId}.`);
+        }
+        if (!timeout) {
+          logger.error(
+            '[E2BCode] `timeout` is required for set_timeout action',
+            { sessionId }
+          );
+          throw new Error('`timeout` is required for `set_timeout` action.');
+        }
+        logger.debug('[E2BCode] Setting sandbox timeout', {
+          sessionId,
+          timeout,
+        });
+        const { sandbox } = sandboxes.get(sessionId);
+        await sandbox.setTimeout(timeout * 60 * 1000);
+        return JSON.stringify({
+          sessionId,
+          success: true,
+          message: `Sandbox timeout updated to ${timeout} minutes.`,
         });
       }
 
