@@ -21,115 +21,16 @@ class E2BCode extends Tool {
     this.description = `
     Use E2B to execute code, run shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox environment.
     
-    **Important Notes:**
+    Sessions: You must provide a unique \`sessionId\` string to maintain session state between calls. Use the same \`sessionId\` for related actions.
     
-    - **Session Management:** You must provide a unique \`sessionId\` string to maintain session state between calls. Use the same \`sessionId\` for related actions.
-    
-    - **Available Actions and Parameters:**
-    
-      **1. create**
-    
-      - **Description:** Create a new E2B sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`: A unique identifier for the session. Use the same \`sessionId\` to maintain state across multiple calls.
-      - **Optional Parameters:**
-        - \`timeout\`: Timeout in minutes for the sandbox environment. Defaults to 60 minutes.
-        - \`envs\`: A key-value object of environment variables to set when creating the sandbox.
-    
-      **2. list_sandboxes**
-    
-      - **Description:** List all active E2B sandboxes for the current session.
-      - **Parameters:** None (include \`sessionId\` for consistency).
-    
-      **3. kill**
-    
-      - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\`.
-      - **Required Parameters:**
-        - \`sessionId\`
-    
-      **4. set_timeout**
-    
-      - **Description:** Update the timeout for the sandbox environment to keep it alive for the specified duration.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`timeout\`: Timeout in minutes for the sandbox environment.
-    
-      **5. execute**
-    
-      - **Description:** Execute code within the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`code\`: The code to execute.
-      - **Optional Parameters:**
-        - \`language\`: The programming language to use (\`python\`, \`javascript\`, \`typescript\`, \`shell\`). Defaults to \`python\`.
-        - \`envs\`: Environment variables to set for this execution.
-    
-      **6. shell**
-    
-      - **Description:** Run a shell command inside the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`command\`: The shell command to execute.
-      - **Optional Parameters:**
-        - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
-        - \`envs\`: Environment variables to set for this execution.
-    
-      **7. kill_command**
-    
-      - **Description:** Terminate a background shell command that was previously started.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`commandId\`: The ID of the background command to kill.
-    
-      **8. write_file**
-    
-      - **Description:** Write content to a file in the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`filePath\`: The path to the file where content will be written.
-        - \`fileContent\`: The content to write to the file.
-    
-      **9. read_file**
-    
-      - **Description:** Read the content of a file from the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`filePath\`: The path to the file to read.
-    
-      **10. install**
-    
-      - **Description:** Install a package within the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`code\`: The package name to install.
-      - **Optional Parameters:**
-        - \`language\`: The programming language package manager to use (\`python\` uses pip, \`javascript\`/\`typescript\` use npm). Defaults to \`python\`.
-        - \`envs\`: Environment variables to set for this installation.
-    
-      **11. get_file_downloadurl**
-    
-      - **Description:** Obtain a download URL for a file in the sandbox environment.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`filePath\`: The path to the file for which to generate a download URL.
-    
-      **12. get_host**
-    
-      - **Description:** Retrieve the host and port information for accessing services running inside the sandbox.
-      - **Required Parameters:**
-        - \`sessionId\`
-        - \`port\`: The port number that the service is running on inside the sandbox.
-    
-    - **Environment Variables:**
-      - Some environment variables may already be set in the sandbox environment.
-      - Use the \`envs\` parameter to provide additional environment variables as a key-value object when creating the sandbox (\`create\` action) or for specific operations (\`execute\`, \`shell\`, and \`install\` actions).
-    
-    Please use the above actions and parameters to interact with the E2B sandbox environment effectively.
+    Use the help action before executing anything else to understand the available actions and parameters.
 
-    IMPORTANT NOTE: When running servers such as nginx or flask you MUST start it in the background to get a response! You can either do this through pythons popen
-    , or use background: true in the execute action. ADDING AN AMPERSAND TO THE END OF A COMMAND WILL NOT WORK.
-    You can then use the get_host action to get the host and port to access the server. Redirect
-    stdout and stderr to a file to debug any issues.
+    NOTE: When running servers such as nginx or flask you MUST start it in the background! You can do this through subprocess.Popen
+     or use background: true in the execute action. Redirect stdout and stderr to a file to debug any issues.
+
+    To copy files from one sandbox to another is to gzip them, then use the get_download_url action to get a link,
+    and then use wget on the new sandbox to download.
+
     `;
 
     this.schema = z.object({
@@ -141,6 +42,7 @@ class E2BCode extends Tool {
         ),
       action: z
         .enum([
+          'help',
           'create',
           'list_sandboxes',
           'kill',
@@ -367,6 +269,126 @@ class E2BCode extends Tool {
       const hiddenEnvVars = this.getHiddenEnvVars();
 
       switch (action) {
+        case 'help':
+          return JSON.stringify({
+            message: `
+            Use E2B to execute code, run shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox environment.
+            
+            **Important Notes:**
+            
+            - **Session Management:** You must provide a unique \`sessionId\` string to maintain session state between calls. Use the same \`sessionId\` for related actions.
+            
+            - **Available Actions and Parameters:**
+            
+              **1. create**
+            
+              - **Description:** Create a new E2B sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`: A unique identifier for the session. Use the same \`sessionId\` to maintain state across multiple calls.
+              - **Optional Parameters:**
+                - \`timeout\`: Timeout in minutes for the sandbox environment. Defaults to 60 minutes.
+                - \`envs\`: A key-value object of environment variables to set when creating the sandbox.
+            
+              **2. list_sandboxes**
+            
+              - **Description:** List all active E2B sandboxes for the current session.
+              - **Parameters:** None (include \`sessionId\` for consistency).
+            
+              **3. kill**
+            
+              - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\`.
+              - **Required Parameters:**
+                - \`sessionId\`
+            
+              **4. set_timeout**
+            
+              - **Description:** Update the timeout for the sandbox environment to keep it alive for the specified duration.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`timeout\`: Timeout in minutes for the sandbox environment.
+            
+              **5. execute**
+            
+              - **Description:** Execute code within the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`code\`: The code to execute.
+              - **Optional Parameters:**
+                - \`language\`: The programming language to use (\`python\`, \`javascript\`, \`typescript\`, \`shell\`). Defaults to \`python\`.
+                - \`envs\`: Environment variables to set for this execution.
+            
+              **6. shell**
+            
+              - **Description:** Run a shell command inside the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`command\`: The shell command to execute.
+              - **Optional Parameters:**
+                - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
+                - \`envs\`: Environment variables to set for this execution.
+            
+              **7. kill_command**
+            
+              - **Description:** Terminate a background shell command that was previously started.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`commandId\`: The ID of the background command to kill.
+            
+              **8. write_file**
+            
+              - **Description:** Write content to a file in the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`filePath\`: The path to the file where content will be written.
+                - \`fileContent\`: The content to write to the file.
+            
+              **9. read_file**
+            
+              - **Description:** Read the content of a file from the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`filePath\`: The path to the file to read.
+            
+              **10. install**
+            
+              - **Description:** Install a package within the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`code\`: The package name to install.
+              - **Optional Parameters:**
+                - \`language\`: The programming language package manager to use (\`python\` uses pip, \`javascript\`/\`typescript\` use npm). Defaults to \`python\`.
+                - \`envs\`: Environment variables to set for this installation.
+            
+              **11. get_file_downloadurl**
+            
+              - **Description:** Obtain a download URL for a file in the sandbox environment.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`filePath\`: The path to the file for which to generate a download URL.
+            
+              **12. get_host**
+            
+              - **Description:** Retrieve the host and port information for accessing services running inside the sandbox.
+              - **Required Parameters:**
+                - \`sessionId\`
+                - \`port\`: The port number that the service is running on inside the sandbox.
+            
+            - **Environment Variables:**
+              - Some environment variables may already be set in the sandbox environment.
+              - Use the \`envs\` parameter to provide additional environment variables as a key-value object when creating the sandbox (\`create\` action) or for specific operations (\`execute\`, \`shell\`, and \`install\` actions).
+            
+            Please use the above actions and parameters to interact with the E2B sandbox environment effectively.
+        
+            IMPORTANT NOTE: When running servers such as nginx or flask you MUST start it in the background to get a response! You can either do this through subprocess.Popen
+             or use background: true in the execute action. ADDING AN AMPERSAND TO THE END OF A COMMAND WILL NOT WORK.
+            You can then use the get_host action to get the host and port to access the server. Redirect
+            stdout and stderr to a file to debug any issues.
+        
+            The easiest way to copy files from one sandbox to another is to gzip them and then use the get_download_url action to get a download link,
+            and then use wget on the other sandbox to download the file.
+        
+            `});
+
         case 'execute':
           if (!code) {
             logger.error('[E2BCode] Code missing for execute action', {
