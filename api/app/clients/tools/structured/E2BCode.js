@@ -55,9 +55,10 @@ class E2BCode extends Tool {
           'install',
           'get_file_downloadurl',
           'get_host',
+          'command_run', // Added new action
         ])
         .describe(
-          'The action to perform: create a new sandbox, list running sandboxes, kill a sandbox, change sandbox timeout, execute code, run shell command, kill a background command, write file, read file, install package, get file download URL, or get the host and port.'
+          'The action to perform.'
         ),
       code: z
         .string()
@@ -72,12 +73,35 @@ class E2BCode extends Tool {
       command: z
         .string()
         .optional()
-        .describe('Shell command to execute (required for `shell` action).'),
+        .describe('Shell command to execute (used with `shell` action).'),
+      cmd: z
+        .string()
+        .optional()
+        .describe('Command to execute (required for `command_run` action).'),
       background: z
         .boolean()
         .optional()
         .describe(
-          'Whether to run the shell command in the background (optional, used with `shell` action).'
+          'Whether to run the command in the background (used with `shell` and `command_run` actions). Defaults to `false`.'
+        ),
+      cwd: z
+        .string()
+        .optional()
+        .describe(
+          'Working directory for the command (optional, used with `command_run` action).'
+        ),
+      timeoutMs: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          'Timeout in milliseconds for the command (optional, used with `command_run` action).'
+        ),
+      user: z
+        .string()
+        .optional()
+        .describe(
+          'User to run the command as (optional, used with `command_run` action).'
         ),
       commandId: z
         .string()
@@ -115,7 +139,7 @@ class E2BCode extends Tool {
         .record(z.string(), z.string())
         .optional()
         .describe(
-          'Environment variables to set when creating the sandbox (used with `create` action) and for specific execution (used with `execute`, `shell`, and `install` actions).'
+          'Environment variables to set when creating the sandbox (used with `create` action) and for specific execution (used with `execute`, `shell`, `install`, and `command_run` actions).'
         ),
     });
   }
@@ -147,7 +171,11 @@ class E2BCode extends Tool {
       language = 'python',
       action,
       command,
+      cmd,
       background = false,
+      cwd,
+      timeoutMs,
+      user,
       commandId,
       filePath,
       fileContent,
@@ -484,8 +512,8 @@ class E2BCode extends Tool {
                 sessionId,
                 commandId,
               });
-              const cmd = sandboxInfo.commands.get(commandId);
-              if (!cmd) {
+              const commandToKill = sandboxInfo.commands.get(commandId);
+              if (!commandToKill) {
                 logger.error('[E2BCode] No command found to kill', {
                   sessionId,
                   commandId,
@@ -494,7 +522,7 @@ class E2BCode extends Tool {
                   `No background command found with ID ${commandId}.`
                 );
               }
-              await cmd.kill();
+              await commandToKill.kill();
               sandboxInfo.commands.delete(commandId);
               return JSON.stringify({
                 sessionId,
@@ -661,6 +689,67 @@ class E2BCode extends Tool {
                 port,
                 message: `Host+port retrieved for port ${port}`,
               });
+
+            // Commands SDK
+            case 'command_run':
+              if (!cmd) {
+                logger.error('[E2BCode] `cmd` is missing for command_run action', {
+                  sessionId,
+                });
+                throw new Error('`cmd` is required for `command_run` action.');
+              }
+              logger.debug('[E2BCode] Running command', {
+                sessionId,
+                cmd,
+                background,
+              });
+              const commandOptions = {};
+              if (background !== undefined) {
+                commandOptions.background = background;
+              }
+              if (cwd) {
+                commandOptions.cwd = cwd;
+              }
+              if (timeoutMs) {
+                commandOptions.timeoutMs = timeoutMs;
+              }
+              if (user) {
+                commandOptions.user = user;
+              }
+              if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+                commandOptions.envs = {
+                  ...hiddenEnvVars,
+                  ...envs,
+                };
+              }
+              if (background) {
+                const commandHandle = await sandbox.commands.run(cmd, commandOptions);
+                const cmdId = commandHandle.id;
+                sandboxInfo.commands.set(cmdId, commandHandle);
+                logger.debug('[E2BCode] Background command started', {
+                  sessionId,
+                  commandId: cmdId,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  commandId: cmdId,
+                  success: true,
+                  message: `Background command started with ID ${cmdId}`,
+                });
+              } else {
+                const commandResult = await sandbox.commands.run(cmd, commandOptions);
+                logger.debug('[E2BCode] Command execution completed', {
+                  sessionId,
+                  exitCode: commandResult.exitCode,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  stdout: commandResult.stdout,
+                  stderr: commandResult.stderr,
+                  exitCode: commandResult.exitCode,
+                  success: commandResult.exitCode === 0,
+                });
+              }
 
             default:
               logger.error('[E2BCode] Unknown action requested', {
