@@ -92,7 +92,7 @@ class E2BCode extends Tool {
         .boolean()
         .optional()
         .describe(
-          'Whether to run the command in the background for `command_run` action. Defaults to `false`.'
+          'Whether to run the command in the background for `command_run` action). Defaults to `false`.'
         ),
       cwd: z
         .string()
@@ -146,6 +146,7 @@ class E2BCode extends Tool {
         .number()
         .int()
         .optional()
+        .default(60)
         .describe(
           'Timeout in minutes for the sandbox environment. Defaults to 60 minutes.'
         ),
@@ -502,41 +503,55 @@ class E2BCode extends Tool {
             return JSON.stringify({ message: overview });
           }
 
-        case 'create':
-          if (sandboxes.has(sessionId)) {
-            logger.error('[E2BCode] Sandbox already exists', { sessionId });
-            throw new Error(
-              `Sandbox with sessionId ${sessionId} already exists.`
-            );
-          }
-          logger.debug('[E2BCode] Creating new sandbox', {
-            sessionId,
-            timeout,
-          });
-          const sandboxOptions = {
-            apiKey: this.apiKey,
-            timeoutMs: timeout * 60 * 1000,
-          };
-          // Get hidden environment variables
-          const hiddenEnvVarsCreate = this.getHiddenEnvVars();
-          // Merge hidden env vars with any provided envs, without exposing hidden vars to the LLM
-          if (Object.keys(hiddenEnvVarsCreate).length > 0 || envs) {
-            sandboxOptions.env = {
-              ...hiddenEnvVarsCreate,
-              ...envs,
+        case 'create': {
+            if (sandboxes.has(sessionId)) {
+              logger.error('[E2BCode] Sandbox already exists', { sessionId });
+              throw new Error(`Sandbox with sessionId ${sessionId} already exists.`);
+            }
+            logger.debug('[E2BCode] Creating new sandbox', {
+              sessionId,
+              timeout,
+            });
+            const sandboxOptions = {
+              apiKey: this.apiKey,
+              timeoutMs: timeout * 60 * 1000,
             };
+            // Get hidden environment variables
+            const hiddenEnvVarsCreate = this.getHiddenEnvVars();
+            // Merge hidden env vars with any provided envs, without exposing hidden vars to the LLM
+            if (Object.keys(hiddenEnvVarsCreate).length > 0 || envs) {
+              sandboxOptions.env = {
+                ...hiddenEnvVarsCreate,
+                ...envs,
+              };
+            }
+            const sandboxCreate = await Sandbox.create(sandboxOptions);
+            sandboxes.set(sessionId, {
+              sandbox: sandboxCreate,
+              lastAccessed: Date.now(),
+              commands: new Map(),
+            });
+        
+            // Get current user and current directory inside the sandbox
+            const whoamiResult = await sandboxCreate.commands.run('whoami');
+            const currentUser = whoamiResult.stdout.trim();
+        
+            const pwdResult = await sandboxCreate.commands.run('pwd');
+            const currentDirectory = pwdResult.stdout.trim();
+        
+            // Get sandbox ID
+            const sandboxId = sandboxCreate.sandboxId;
+        
+            return JSON.stringify({
+              sessionId,
+              sandboxId,
+              currentUser,
+              currentDirectory,
+              success: true,
+              message: `Sandbox created with timeout ${timeout} minutes.`,
+            });
           }
-          const sandboxCreate = await Sandbox.create(sandboxOptions);
-          sandboxes.set(sessionId, {
-            sandbox: sandboxCreate,
-            lastAccessed: Date.now(),
-            commands: new Map(),
-          });
-          return JSON.stringify({
-            sessionId,
-            success: true,
-            message: `Sandbox created with timeout ${timeout} minutes.`,
-          });
+          break;
 
         case 'list_sandboxes':
           logger.debug('[E2BCode] Listing all active sandboxes');
