@@ -55,11 +55,10 @@ class E2BCode extends Tool {
           'install',
           'get_file_downloadurl',
           'get_host',
-          'command_run', // Added new action
+          'command_run',
+          'start_server', // Added new action
         ])
-        .describe(
-          'The action to perform.'
-        ),
+        .describe('The action to perform.'),
       code: z
         .string()
         .optional()
@@ -77,31 +76,33 @@ class E2BCode extends Tool {
       cmd: z
         .string()
         .optional()
-        .describe('Command to execute (required for `command_run` action).'),
+        .describe(
+          'Command to execute (required for `command_run` and `start_server` actions).'
+        ),
       background: z
         .boolean()
         .optional()
         .describe(
-          'Whether to run the command in the background (used with `shell` and `command_run` actions). Defaults to `false`.'
+          'Whether to run the command in the background (used with `shell`, `command_run`, and `start_server` actions). Defaults to `false`.'
         ),
       cwd: z
         .string()
         .optional()
         .describe(
-          'Working directory for the command (optional, used with `command_run` action).'
+          'Working directory for the command (optional, used with `command_run` and `start_server` actions).'
         ),
       timeoutMs: z
         .number()
         .int()
         .optional()
         .describe(
-          'Timeout in milliseconds for the command (optional, used with `command_run` action).'
+          'Timeout in milliseconds for the command (optional, used with `command_run` and `start_server` actions).'
         ),
       user: z
         .string()
         .optional()
         .describe(
-          'User to run the command as (optional, used with `command_run` action).'
+          'User to run the command as (optional, used with `command_run` and `start_server` actions).'
         ),
       commandId: z
         .string()
@@ -118,15 +119,19 @@ class E2BCode extends Tool {
       fileContent: z
         .string()
         .optional()
-        .describe(
-          'Content to write to file (required for `write_file` action).'
-        ),
+        .describe('Content to write to file (required for `write_file` action).'),
       port: z
         .number()
         .int()
         .optional()
         .describe(
-          'Port number to use for the host (required for `get_host` action).'
+          'Port number to use for the host (required for `get_host` and `start_server` actions).'
+        ),
+      logFile: z
+        .string()
+        .optional()
+        .describe(
+          'Path to the log file where stdout and stderr will be redirected (required for `start_server` action).'
         ),
       timeout: z
         .number()
@@ -139,7 +144,7 @@ class E2BCode extends Tool {
         .record(z.string(), z.string())
         .optional()
         .describe(
-          'Environment variables to set when creating the sandbox (used with `create` action) and for specific execution (used with `execute`, `shell`, `install`, and `command_run` actions).'
+          'Environment variables to set when creating the sandbox (used with `create` action) and for specific execution (used with `execute`, `shell`, `install`, `command_run`, and `start_server` actions).'
         ),
     });
   }
@@ -305,7 +310,7 @@ class E2BCode extends Tool {
                 
                 - **Available Actions and Parameters:**
                 
-                  **1. create**
+                  **create**
                 
                   - **Description:** Create a new E2B sandbox environment.
                   - **Required Parameters:**
@@ -314,25 +319,25 @@ class E2BCode extends Tool {
                     - \`timeout\`: Timeout in minutes for the sandbox environment. Defaults to 60 minutes.
                     - \`envs\`: A key-value object of environment variables to set when creating the sandbox.
                 
-                  **2. list_sandboxes**
+                  **list_sandboxes**
                 
                   - **Description:** List all active E2B sandboxes for the current session.
                   - **Parameters:** None (include \`sessionId\` for consistency).
                 
-                  **3. kill**
+                  **kill**
                 
                   - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\`.
                   - **Required Parameters:**
                     - \`sessionId\`
                 
-                  **4. set_timeout**
+                  **set_timeout**
                 
                   - **Description:** Update the timeout for the sandbox environment to keep it alive for the specified duration.
                   - **Required Parameters:**
                     - \`sessionId\`
                     - \`timeout\`: Timeout in minutes for the sandbox environment.
                 
-                  **5. execute**
+                  **execute**
                 
                   - **Description:** Execute code within the sandbox environment.
                   - **Required Parameters:**
@@ -342,7 +347,7 @@ class E2BCode extends Tool {
                     - \`language\`: The programming language to use (\`python\`, \`javascript\`, \`typescript\`, \`shell\`). Defaults to \`python\`.
                     - \`envs\`: Environment variables to set for this execution.
                 
-                  **6. shell**
+                  **shell**
                 
                   - **Description:** Run a shell command inside the sandbox environment.
                   - **Required Parameters:**
@@ -352,14 +357,14 @@ class E2BCode extends Tool {
                     - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
                     - \`envs\`: Environment variables to set for this execution.
                 
-                  **7. kill_command**
+                  **kill_command**
                 
                   - **Description:** Terminate a background shell command that was previously started.
                   - **Required Parameters:**
                     - \`sessionId\`
                     - \`commandId\`: The ID of the background command to kill.
                 
-                  **8. write_file**
+                  **write_file**
                 
                   - **Description:** Write content to a file in the sandbox environment.
                   - **Required Parameters:**
@@ -367,14 +372,14 @@ class E2BCode extends Tool {
                     - \`filePath\`: The path to the file where content will be written.
                     - \`fileContent\`: The content to write to the file.
                 
-                  **9. read_file**
+                  **read_file**
                 
                   - **Description:** Read the content of a file from the sandbox environment.
                   - **Required Parameters:**
                     - \`sessionId\`
                     - \`filePath\`: The path to the file to read.
                 
-                  **10. install**
+                  **install**
                 
                   - **Description:** Install a package within the sandbox environment.
                   - **Required Parameters:**
@@ -384,19 +389,54 @@ class E2BCode extends Tool {
                     - \`language\`: The programming language package manager to use (\`python\` uses pip, \`javascript\`/\`typescript\` use npm). Defaults to \`python\`.
                     - \`envs\`: Environment variables to set for this installation.
                 
-                  **11. get_file_downloadurl**
+                  **get_file_downloadurl**
                 
                   - **Description:** Obtain a download URL for a file in the sandbox environment.
                   - **Required Parameters:**
                     - \`sessionId\`
                     - \`filePath\`: The path to the file for which to generate a download URL.
                 
-                  **12. get_host**
+                  **get_host**
                 
                   - **Description:** Retrieve the host and port information for accessing services running inside the sandbox.
                   - **Required Parameters:**
                     - \`sessionId\`
                     - \`port\`: The port number that the service is running on inside the sandbox.
+
+                **start_server**
+
+              - **Description:** Start a server process in the sandbox environment by executing a command in the background, redirecting stdout and stderr to a specified log file, and returning the host and port information for accessing the server.
+
+              - **Required Parameters:**
+                - \`sessionId\`: A unique identifier for the session. Use the same \`sessionId\` to maintain state across multiple calls.
+                - \`cmd\`: The command to execute to start the server.
+                - \`port\`: The port number on which the server is expected to listen inside the sandbox.
+                - \`logFile\`: The path to the log file where stdout and stderr will be redirected.
+
+              - **Optional Parameters:**
+                - \`cwd\`: Working directory for the command.
+                - \`timeoutMs\`: Timeout in milliseconds for the command.
+                - \`user\`: User to run the command as.
+                - \`envs\`: Environment variables to set for this execution.
+
+              - **Returns:**
+                - \`sessionId\`: The session ID for maintaining state.
+                - \`commandId\`: The ID of the background command started.
+                - \`host\`: The host address to access the server.
+                - \`port\`: The port number to access the server.
+                - \`logFile\`: The location of the log file where stdout and stderr are redirected.
+                - \`message\`: Confirmation message of server start and log file location.
+
+              **Usage Example:**
+
+              json
+              {
+                "sessionId": "your_unique_session_id",
+                "action": "start_server",
+                "cmd": "python -m http.server 8080",
+                "port": 8080,
+                "logFile": "/tmp/server.log"
+              }
                 
                 - **Environment Variables:**
                   - Some environment variables may already be set in the sandbox environment.
@@ -749,8 +789,73 @@ class E2BCode extends Tool {
                   exitCode: commandResult.exitCode,
                   success: commandResult.exitCode === 0,
                 });
-              }
+            }
 
+            case 'start_server':
+              if (!cmd) {
+                logger.error('[E2BCode] `cmd` is missing for start_server action', {
+                  sessionId,
+                });
+                throw new Error('`cmd` is required for `start_server` action.');
+              }
+              if (!port) {
+                logger.error('[E2BCode] `port` is missing for start_server action', {
+                  sessionId,
+                });
+                throw new Error('`port` is required for `start_server` action.');
+              }
+              if (!logFile) {
+                logger.error('[E2BCode] `logFile` is missing for start_server action', {
+                  sessionId,
+                });
+                throw new Error('`logFile` is required for `start_server` action.');
+              }
+              logger.debug('[E2BCode] Starting server', {
+                sessionId,
+                cmd,
+                port,
+                logFile,
+              });
+              const serverCommand = `${cmd} > ${logFile} 2>&1`;
+              const serverOptions = {};
+              serverOptions.background = true;
+              if (cwd) {
+                serverOptions.cwd = cwd;
+              }
+              if (timeoutMs) {
+                serverOptions.timeoutMs = timeoutMs;
+              }
+              if (user) {
+                serverOptions.user = user;
+              }
+              if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+                serverOptions.envs = {
+                  ...hiddenEnvVars,
+                  ...envs,
+                };
+              }
+              const serverHandle = await sandbox.commands.run(
+                serverCommand,
+                serverOptions
+              );
+              const serverCommandId = serverHandle.id;
+              sandboxInfo.commands.set(serverCommandId, serverHandle);
+              logger.debug('[E2BCode] Server started', {
+                sessionId,
+                commandId: serverCommandId,
+              });
+              host = await sandbox.getHost(port);
+              logger.debug('[E2BCode] Host+port retrieved', { sessionId, host });
+              return JSON.stringify({
+                sessionId,
+                commandId: serverCommandId,
+                success: true,
+                host,
+                port,
+                logFile,
+                message: `Server started with ID ${serverCommandId}, accessible at ${host}:${port}. Logs are redirected to ${logFile}`,
+              });
+          
             default:
               logger.error('[E2BCode] Unknown action requested', {
                 sessionId,
