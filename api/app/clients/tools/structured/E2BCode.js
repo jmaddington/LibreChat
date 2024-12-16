@@ -207,14 +207,13 @@ class E2BCode extends Tool {
   
   - **Parameters:** None (include \`sessionId\` for consistency).
   `,
-  
-      'kill': `
+'kill': `
   **kill**
   
-  - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\`.
+  - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\` or \`sandboxId\`.
   
   - **Required Parameters:**
-    - \`sandboxId\`
+    - Either \`sessionId\` or \`sandboxId\` must be provided. If both are provided \`sandboxId\` will take precedence.
   `,
   
       'set_timeout': `
@@ -378,6 +377,7 @@ class E2BCode extends Tool {
   async _call(input) {
     const {
       sessionId,
+      sandboxId,
       code,
       language = 'python',
       action,
@@ -385,21 +385,31 @@ class E2BCode extends Tool {
       cmd,
       background = false,
       cwd,
-      timeoutMs,
+      timeoutMs = 30 * 1000,
       user,
       commandId,
       filePath,
       fileContent,
       port,
-      timeout = 60,
+      timeout = 60 * 60,
       envs,
       command_name,
       logFile,
     } = input;
 
-    if (!sessionId) {
-      logger.error('[E2BCode] `sessionId` is missing in the input');
-      throw new Error('`sessionId` is required to maintain session state.');
+    // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes
+    if (action !== 'help' && action !== 'list_sandboxes' && (!sessionId || !sandboxId)) {
+      logger.error('[E2BCode] `sessionId` is required for all action except help and list_sandboes', {
+        action,
+      });
+    }
+
+    if (timeoutMs < 1000) {
+      timeoutMs = 1000;
+    }
+
+    if (timeout < 1) {
+      timeout = 1;
     }
 
     logger.debug('[E2BCode] Processing request', {
@@ -511,30 +521,64 @@ class E2BCode extends Tool {
               });
             }
 
-        case 'kill':
-          let sandboxId = input.sandboxId;
-          if (!sandboxId) {
-            // Try to get it from sessionId mapping
-            if (sandboxes.has(sessionId)) {
-              const sandboxInfo = sandboxes.get(sessionId);
-              sandboxId = sandboxInfo.sandbox.sandboxId;
+          case 'kill':
+            let sandboxId = input.sandboxId;
+            let sandboxToKill;
+  
+            if (!sandboxId) {
+              // Try to get it from sessionId mapping
+              if (sandboxes.has(sessionId)) {
+                const sandboxInfo = sandboxes.get(sessionId);
+                sandboxId = sandboxInfo.sandbox.sandboxId;
+              }
             }
-          }
-          if (!sandboxId) {
-            logger.error('[E2BCode] No sandboxId provided to kill', { sessionId });
-            throw new Error(`No sandboxId provided. Cannot kill sandbox.`);
-          }
-          // Remove the suffix after '-'
-          const [validSandboxId] = sandboxId.split('-');
-          logger.debug('[E2BCode] Killing sandbox', { sessionId, validSandboxId });
-          const sandboxToKill = await Sandbox.connect(validSandboxId, { apiKey: this.apiKey });
-          await sandboxToKill.kill();
-          sandboxes.delete(sessionId);
-          return JSON.stringify({
-            sessionId,
-            success: true,
-            message: `Sandbox with sessionId ${sessionId} and sandboxId ${validSandboxId} has been killed.`,
-          });
+            if (!sandboxId) {
+              logger.error('[E2BCode] No sandboxId or sessionId provided to kill', { sessionId });
+              throw new Error(`No sandboxId or sessionId provided. Cannot kill sandbox.`);
+            }
+            // Remove the suffix after '-'
+            const [validSandboxId] = sandboxId.split('-');
+            logger.debug('[E2BCode] Killing sandbox', { sessionId, validSandboxId });
+            try {
+                sandboxToKill = await Sandbox.connect(validSandboxId, { apiKey: this.apiKey });
+            } catch (error) {
+                logger.error('[E2BCode] Error connecting to sandbox to kill', { sessionId, validSandboxId, error: error.message });
+                // If connection fails, we assume sandbox does not exist (or was killed before) and remove it from our local sandboxes map if we have it
+                  if(sandboxes.has(sessionId)){
+                      sandboxes.delete(sessionId);
+                  }
+                return JSON.stringify({
+                  sessionId,
+                  success: false,
+                  message: `No sandbox found with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
+                });
+            }
+            
+            try {
+              await sandboxToKill.kill();
+            } catch (error) {
+              logger.error('[E2BCode] Error killing sandbox', { sessionId, validSandboxId, error: error.message });
+                // If kill fails, we assume sandbox was already killed or timed out and remove it from our local sandboxes map if we have it
+                if(sandboxes.has(sessionId)){
+                  sandboxes.delete(sessionId);
+                }
+              return JSON.stringify({
+                  sessionId,
+                  success: false,
+                  message: `Failed to kill sandbox with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
+              });
+            }
+            
+              // If kill is succesful we delete it from sandboxes map
+            if (sandboxes.has(sessionId)){
+                  sandboxes.delete(sessionId);
+            }
+  
+            return JSON.stringify({
+              sessionId,
+              success: true,
+              message: `Sandbox with sessionId ${sessionId} and sandboxId ${validSandboxId} has been killed.`,
+            });
 
         case 'set_timeout':
           if (!sandboxes.has(sessionId)) {
