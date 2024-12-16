@@ -54,7 +54,7 @@ class E2BCode extends Tool {
           'kill',
           'set_timeout',
           'execute',
-          'shell',
+          // 'shell',
           'kill_command',
           'write_file',
           'read_file',
@@ -64,6 +64,8 @@ class E2BCode extends Tool {
           'command_run',
           'start_server',
           'command_list',
+          'command_kill',
+          'processinfo',
         ])
         .describe('The action to perform.'),
         code: z
@@ -76,10 +78,10 @@ class E2BCode extends Tool {
         .enum(['python', 'javascript', 'typescript', 'shell'])
         .optional()
         .describe('The programming language to use. Defaults to `python`.'),
-      command: z
-        .string()
-        .optional()
-        .describe('Shell command to execute (used with `shell` action).'),
+      // command: z
+      //   .string()
+      //   .optional()
+      //   .describe('Shell command to execute (used with `shell` action).'),
       cmd: z
         .string()
         .optional()
@@ -90,7 +92,7 @@ class E2BCode extends Tool {
         .boolean()
         .optional()
         .describe(
-          'Whether to run the command in the background (used with `shell`, `command_run`, and `start_server` actions). Defaults to `false`.'
+          'Whether to run the command in the background for `command_run` action. Defaults to `false`.'
         ),
       cwd: z
         .string()
@@ -158,6 +160,13 @@ class E2BCode extends Tool {
         .optional()
         .describe(
           'The name of the command to get detailed help about (used with the `help` action).'
+        ),
+        pid: z
+        .number()
+        .int()
+        .optional()
+        .describe(
+          'Process ID of the command to kill (required for `command_kill` action) or get info (required for `processinfo` action).'
         ),
     });
   }
@@ -240,19 +249,19 @@ class E2BCode extends Tool {
     - \`envs\`: Environment variables to set for this execution.
   `,
   
-      'shell': `
-  **shell**
+  //     'shell': `
+  // **shell**
   
-  - **Description:** Run a shell command inside the sandbox environment.
+  // - **Description:** Run a shell command inside the sandbox environment.
   
-  - **Required Parameters:**
-    - \`sessionId\`
-    - \`command\`: The shell command to execute.
+  // - **Required Parameters:**
+  //   - \`sessionId\`
+  //   - \`command\`: The shell command to execute.
   
-  - **Optional Parameters:**
-    - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
-    - \`envs\`: Environment variables to set for this execution.
-  `,
+  // - **Optional Parameters:**
+  //   - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
+  //   - \`envs\`: Environment variables to set for this execution.
+  // `,
   
       'kill_command': `
   **kill_command**
@@ -369,6 +378,40 @@ class E2BCode extends Tool {
   - **Required Parameters:**
     - \`sessionId\`
   `,
+
+  'command_kill': `
+  **command_kill**
+  
+  - **Description:** Kill a running command specified by its process ID.
+  
+  - **Required Parameters:**
+    - \`sessionId\`
+    - \`pid\`: Process ID of the command to kill.
+  `,
+  
+      'processinfo': `
+  **processinfo**
+  
+  - **Description:** Get detailed information about a running command specified by its process ID.
+  
+  - **Required Parameters:**
+    - \`sessionId\`
+    - \`pid\`: Process ID of the command to get information about.
+  `,
+
+  'system_install': `
+  **system_install**
+  
+  - **Description:** Install system packages within the sandbox environment using \`sudo apt-get install\`.
+  
+  - **Required Parameters:**
+    - \`sessionId\`
+    - \`packages\`: An array of system package names to install.
+  
+  - **Optional Parameters:**
+    - \`envs\`: Environment variables to set for this installation.
+  `,
+
     };
   
     return helpTexts[commandName];
@@ -395,6 +438,7 @@ class E2BCode extends Tool {
       envs,
       command_name,
       logFile,
+      pid,
     } = input;
 
     // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes
@@ -440,15 +484,19 @@ class E2BCode extends Tool {
               'kill',
               'set_timeout',
               'execute',
-              'shell',
+              // 'shell',
               'kill_command',
               'write_file',
               'read_file',
               'install',
+              'system_install',
               'get_file_downloadurl',
               'get_host',
               'command_run',
               'start_server',
+              'command_list',
+              'command_kill',
+              'processinfo',
             ];
             const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command.`;
             return JSON.stringify({ message: overview });
@@ -490,38 +538,38 @@ class E2BCode extends Tool {
             message: `Sandbox created with timeout ${timeout} minutes.`,
           });
 
-          case 'list_sandboxes':
-            logger.debug('[E2BCode] Listing all active sandboxes');
-            try {
-              const sandboxesList = await Sandbox.list({ apiKey: this.apiKey });
-              if (sandboxesList.length === 0) {
-                logger.debug('[E2BCode] No active sandboxes found');
-                return JSON.stringify({
-                  message: 'No active sandboxes found',
-                });
-              }
-              // Map sandbox info to include sandboxId and any other relevant details
-              const sandboxDetails = sandboxesList.map((sandbox) => {
-                const [sandboxId] = sandbox.sandboxId.split('-'); // Split at '-' and take the first part
-                return {
-                  sandboxId,
-                  createdAt: sandbox.createdAt,
-                  status: sandbox.status,
-                  // Include any other relevant details
-                };
-              });
+        case 'list_sandboxes':
+          logger.debug('[E2BCode] Listing all active sandboxes');
+          try {
+            const sandboxesList = await Sandbox.list({ apiKey: this.apiKey });
+            if (sandboxesList.length === 0) {
+              logger.debug('[E2BCode] No active sandboxes found');
               return JSON.stringify({
-                message: 'Active sandboxes found',
-                sandboxes: sandboxDetails,
-              });
-            } catch (error) {
-              logger.error('[E2BCode] Error listing sandboxes', { error: error.message });
-              return JSON.stringify({
-                error: 'Error listing sandboxes: ' + error.message,
+                message: 'No active sandboxes found',
               });
             }
+            // Map sandbox info to include sandboxId and any other relevant details
+            const sandboxDetails = sandboxesList.map((sandbox) => {
+              const [sandboxId] = sandbox.sandboxId.split('-'); // Split at '-' and take the first part
+              return {
+                sandboxId,
+                createdAt: sandbox.createdAt,
+                status: sandbox.status,
+                // Include any other relevant details
+              };
+            });
+            return JSON.stringify({
+              message: 'Active sandboxes found',
+              sandboxes: sandboxDetails,
+            });
+          } catch (error) {
+            logger.error('[E2BCode] Error listing sandboxes', { error: error.message });
+            return JSON.stringify({
+              error: 'Error listing sandboxes: ' + error.message,
+            });
+          }
 
-          case 'kill':
+        case 'kill':
             let sandboxId = input.sandboxId;
             let sandboxToKill;
   
@@ -645,59 +693,59 @@ class E2BCode extends Tool {
                 error: result.error,
               });
 
-            case 'shell':
-              if (!command) {
-                logger.error('[E2BCode] Command missing for shell action', {
-                  sessionId,
-                });
-                throw new Error('Command is required for `shell` action.');
-              }
-              logger.debug('[E2BCode] Executing shell command', {
-                sessionId,
-                command,
-                background,
-              });
-              const shellOptions = {};
-              if (Object.keys(hiddenEnvVars).length > 0 || envs) {
-                shellOptions.envs = {
-                  ...hiddenEnvVars,
-                  ...envs,
-                };
-              }
-              if (background) {
-                shellOptions.background = true;
-                const backgroundCommand = await sandbox.commands.run(
-                  command,
-                  shellOptions
-                );
-                const cmdId = backgroundCommand.id;
-                sandboxInfo.commands.set(cmdId, backgroundCommand);
-                logger.debug('[E2BCode] Background command started', {
-                  sessionId,
-                  commandId: cmdId,
-                });
-                return JSON.stringify({
-                  sessionId,
-                  commandId: cmdId,
-                  success: true,
-                  message: `Background command started with ID ${cmdId}`,
-                });
-              } else {
-                const shellResult = await sandbox.commands.run(
-                  command,
-                  shellOptions
-                );
-                logger.debug('[E2BCode] Shell command completed', {
-                  sessionId,
-                  exitCode: shellResult.exitCode,
-                });
-                return JSON.stringify({
-                  sessionId,
-                  output: shellResult.stdout,
-                  error: shellResult.stderr,
-                  exitCode: shellResult.exitCode,
-                });
-              }
+            // case 'shell':
+            //   if (!command) {
+            //     logger.error('[E2BCode] Command missing for shell action', {
+            //       sessionId,
+            //     });
+            //     throw new Error('Command is required for `shell` action.');
+            //   }
+            //   logger.debug('[E2BCode] Executing shell command', {
+            //     sessionId,
+            //     command,
+            //     background,
+            //   });
+            //   const shellOptions = {};
+            //   if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+            //     shellOptions.envs = {
+            //       ...hiddenEnvVars,
+            //       ...envs,
+            //     };
+            //   }
+            //   if (background) {
+            //     shellOptions.background = true;
+            //     const backgroundCommand = await sandbox.commands.run(
+            //       command,
+            //       shellOptions
+            //     );
+            //     const cmdId = backgroundCommand.id;
+            //     sandboxInfo.commands.set(cmdId, backgroundCommand);
+            //     logger.debug('[E2BCode] Background command started', {
+            //       sessionId,
+            //       commandId: cmdId,
+            //     });
+            //     return JSON.stringify({
+            //       sessionId,
+            //       commandId: cmdId,
+            //       success: true,
+            //       message: `Background command started with ID ${cmdId}`,
+            //     });
+            //   } else {
+            //     const shellResult = await sandbox.commands.run(
+            //       command,
+            //       shellOptions
+            //     );
+            //     logger.debug('[E2BCode] Shell command completed', {
+            //       sessionId,
+            //       exitCode: shellResult.exitCode,
+            //     });
+            //     return JSON.stringify({
+            //       sessionId,
+            //       output: shellResult.stdout,
+            //       error: shellResult.stderr,
+            //       exitCode: shellResult.exitCode,
+            //     });
+            //   }
 
             case 'kill_command':
               if (!commandId) {
@@ -891,6 +939,35 @@ class E2BCode extends Tool {
                 message: `Host+port retrieved for port ${port}`,
               });
 
+            case 'system_install':
+                if (!packages || packages.length === 0) {
+                  logger.error('[E2BCode] Packages missing for system_install action', { sessionId });
+                  throw new Error('`packages` array is required for `system_install` action.');
+                }
+                logger.debug('[E2BCode] Installing system packages', {
+                  sessionId,
+                  packages,
+                });
+                const aptGetInstallCommand = `sudo apt-get update && sudo apt-get install -y ${packages.join(' ')}`;
+                const systemInstallOptions = {};
+                if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+                  installOptions.envs = {
+                    ...hiddenEnvVars,
+                    ...envs,
+                  };
+                }
+                const aptGetResult = await sandbox.commands.run(aptGetInstallCommand, systemInstallOptions);
+                logger.debug('[E2BCode] System package installation completed', {
+                  sessionId,
+                  success: aptGetResult.exitCode === 0,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  success: aptGetResult.exitCode === 0,
+                  output: aptGetResult.stdout,
+                  error: aptGetResult.stderr,
+                });
+
             // Commands SDK
             case 'command_run':
               if (!cmd) {
@@ -1030,6 +1107,77 @@ class E2BCode extends Tool {
                 success: true,
                 processes: processList,
               });
+
+            case 'command_kill':
+              if (pid === undefined) {
+                logger.error(
+                  '[E2BCode] `pid` is missing for `command_kill` action',
+                  { sessionId }
+                );
+                throw new Error('`pid` is required for `command_kill` action.');
+              }
+              logger.debug('[E2BCode] Killing process', {
+                sessionId,
+                pid,
+              });
+              const killResult = await sandbox.commands.kill(pid);
+              if (killResult) {
+                logger.debug('[E2BCode] Process killed successfully', {
+                  sessionId,
+                  pid,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  success: true,
+                  message: `Process with PID ${pid} has been killed.`,
+                });
+              } else {
+                logger.error('[E2BCode] Failed to kill process', {
+                  sessionId,
+                  pid,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  success: false,
+                  message: `Failed to kill process with PID ${pid}.`,
+                });
+              }
+          
+            case 'processinfo':
+              if (pid === undefined) {
+                logger.error(
+                  '[E2BCode] `pid` is missing for `processinfo` action',
+                  { sessionId }
+                );
+                throw new Error('`pid` is required for `processinfo` action.');
+              }
+              logger.debug('[E2BCode] Getting process info', {
+                sessionId,
+                pid,
+              });
+              const processinfo_processList = await sandbox.commands.list();
+              const processInfo = processinfo_processList.find((p) => p.pid === pid);
+              if (processInfo) {
+                logger.debug('[E2BCode] Process info retrieved', {
+                  sessionId,
+                  pid,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  success: true,
+                  process: processInfo,
+                });
+              } else {
+                logger.error('[E2BCode] Process not found', {
+                  sessionId,
+                  pid,
+                });
+                return JSON.stringify({
+                  sessionId,
+                  success: false,
+                  message: `No process found with PID ${pid}.`,
+                });
+              }            
 
             default:
               logger.error('[E2BCode] Unknown action requested', {
