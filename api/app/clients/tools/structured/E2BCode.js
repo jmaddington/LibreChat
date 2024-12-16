@@ -21,6 +21,8 @@ class E2BCode extends Tool {
     this.description = `
     Use E2B to execute code, run shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox environment.
 
+    YOU CANNOT RUN MORE THAN 25 COMMANDS SEQUENTIALLY WITHOUT OUTPUT TO THE USER!
+
     Sessions: You must provide a unique \`sessionId\` string to maintain session state between calls. Use the same \`sessionId\` for related actions.
 
     Use the help action before executing anything else to understand the available actions and parameters. Before you run a command for the first
