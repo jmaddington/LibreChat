@@ -14,9 +14,7 @@ class E2BCode extends Tool {
     const override = fields.override ?? false;
     this.apiKey = fields.apiKey ?? this.getApiKey(envVar, override);
     const keySuffix = this.apiKey ? this.apiKey.slice(-5) : 'none';
-    logger.debug(
-      '[E2BCode] Initialized with API key ' + `*****${keySuffix}`
-    );
+    logger.debug('[E2BCode] Initialized with API key ' + `*****${keySuffix}`);
     this.name = 'E2BCode';
     this.description = `
     Use E2B to execute code, run shell commands, manage files, install packages, and manage sandbox environments in an isolated sandbox environment.
@@ -30,7 +28,6 @@ class E2BCode extends Tool {
 
     To copy files from one sandbox to another is to gzip them, then use the get_download_url action to get a link,
     and then use wget on the new sandbox to download.
-
     `;
 
     this.schema = z.object({
@@ -65,18 +62,19 @@ class E2BCode extends Tool {
           'command_list',
           'command_kill',
           'processinfo',
+          'system_install',
         ])
         .describe('The action to perform.'),
-        code: z
+      template: z
         .string()
         .optional()
         .describe(
-          'The package to install (required `install` actions).'
+          'Sandbox template name or ID to create the sandbox from (used with `create` action).'
         ),
       language: z
         .enum(['python', 'javascript', 'typescript', 'shell'])
         .optional()
-        .describe('The programming language to use. Defaults to `python`.'),
+        .describe('The programming language environment for installs. Defaults to `python`.'),
       cmd: z
         .string()
         .optional()
@@ -87,7 +85,7 @@ class E2BCode extends Tool {
         .boolean()
         .optional()
         .describe(
-          'Whether to run the command in the background for `command_run` action). Defaults to `false`.'
+          'Whether to run the command in the background (for `command_run`, `shell` actions). Defaults to `false`.'
         ),
       cwd: z
         .string()
@@ -151,7 +149,7 @@ class E2BCode extends Tool {
         .record(z.string(), z.string())
         .optional()
         .describe(
-          'Environment variables to set when creating the sandbox (used with `create` action) and for specific executions (used with `shell`, `install`, `command_run`, `start_server`, and `command_list` actions).'
+          'Environment variables to set when creating the sandbox (used with `create` action) and for other actions that run commands.'
         ),
       command_name: z
         .string()
@@ -159,13 +157,17 @@ class E2BCode extends Tool {
         .describe(
           'The name of the command to get detailed help about (used with the `help` action).'
         ),
-        pid: z
+      pid: z
         .number()
         .int()
         .optional()
         .describe(
           'Process ID of the command to kill (required for `command_kill` action) or get info (required for `processinfo` action).'
         ),
+      packages: z
+        .array(z.string())
+        .optional()
+        .describe('List of packages to install (used with `install` and `system_install` actions).')
     });
   }
 
@@ -197,16 +199,16 @@ class E2BCode extends Tool {
       'create': `
   **create**
   
-  - **Description:** Create a new E2B sandbox environment.
+  - **Description:** Create a new E2B sandbox environment from a template.
   
   - **Required Parameters:**
     - \`sessionId\`: A unique identifier for the session. Use the same \`sessionId\` to maintain state across multiple calls.
   
   - **Optional Parameters:**
+    - \`template\`: The sandbox template name or ID to create the environment from.
     - \`timeout\`: Timeout in minutes for the sandbox environment. Defaults to 60 minutes.
     - \`envs\`: A key-value object of environment variables to set when creating the sandbox.
   `,
-  
       'list_sandboxes': `
   **list_sandboxes**
   
@@ -214,7 +216,7 @@ class E2BCode extends Tool {
   
   - **Parameters:** None (include \`sessionId\` for consistency).
   `,
-'kill': `
+      'kill': `
   **kill**
   
   - **Description:** Terminate the E2B sandbox environment associated with the provided \`sessionId\` or \`sandboxId\`.
@@ -222,7 +224,6 @@ class E2BCode extends Tool {
   - **Required Parameters:**
     - Either \`sessionId\` or \`sandboxId\` must be provided. If both are provided \`sandboxId\` will take precedence.
   `,
-  
       'set_timeout': `
   **set_timeout**
   
@@ -232,7 +233,6 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`timeout\`: Timeout in minutes for the sandbox environment.
   `,
-  
       'shell': `
   **shell**
   
@@ -246,7 +246,6 @@ class E2BCode extends Tool {
     - \`background\`: Whether to run the shell command in the background. Boolean value; defaults to \`false\`.
     - \`envs\`: Environment variables to set for this execution.
   `,
-  
       'kill_command': `
   **kill_command**
   
@@ -256,7 +255,6 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`commandId\`: The ID of the background command to kill.
   `,
-  
       'write_file': `
   **write_file**
   
@@ -267,7 +265,6 @@ class E2BCode extends Tool {
     - \`filePath\`: The path to the file where content will be written.
     - \`fileContent\`: The content to write to the file.
   `,
-  
       'read_file': `
   **read_file**
   
@@ -277,21 +274,20 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`filePath\`: The path to the file to read.
   `,
-  
       'install': `
   **install**
   
-  - **Description:** Install a package within the sandbox environment.
+  - **Description:** Install python or node packages within the sandbox environment.
+  Use \`system_install\` for system packages.
   
   - **Required Parameters:**
     - \`sessionId\`
-    - \`code\`: The package name to install.
+    - \`packages\`: An array of package names to install.
   
   - **Optional Parameters:**
-    - \`language\`: The programming language package manager to use (\`python\` uses pip, \`javascript\`/\`typescript\` use npm). Defaults to \`python\`.
+    - \`language\`: The environment to use (\`python\` uses pip, \`javascript\` or \`typescript\` use npm). Defaults to \`python\`.
     - \`envs\`: Environment variables to set for this installation.
   `,
-  
       'get_file_downloadurl': `
   **get_file_downloadurl**
   
@@ -301,7 +297,6 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`filePath\`: The path to the file for which to generate a download URL.
   `,
-  
       'get_host': `
   **get_host**
   
@@ -311,11 +306,11 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`port\`: The port number that the service is running on inside the sandbox.
   `,
-  
       'command_run': `
   **command_run**
   
   - **Description:** Start a new command and wait until it finishes executing, or run it in the background.
+  Use this for running most commands that do not require a PTY session.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -328,11 +323,11 @@ class E2BCode extends Tool {
     - \`user\`: User to run the command as.
     - \`envs\`: Environment variables to set for this command.
   `,
-  
       'start_server': `
   **start_server**
   
-  - **Description:** Start a server process in the sandbox environment by executing a command in the background, redirecting stdout and stderr to a specified log file, and returning the host and port information for accessing the server.
+  - **Description:** Start a server process (e.g., nginx, flask) in the sandbox environment by executing a command in the background, 
+  redirecting stdout and stderr to a specified log file, and returning the host and port information for accessing the server.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -347,14 +342,13 @@ class E2BCode extends Tool {
     - \`envs\`: Environment variables to set for this execution.
   
   - **Returns:**
-    - \`sessionId\`: The session ID for maintaining state.
+    - \`sessionId\`: The session ID.
     - \`commandId\`: The ID of the background command started.
     - \`host\`: The host address to access the server.
-    - \`port\`: The port number to access the server.
-    - \`logFile\`: The location of the log file where stdout and stderr are redirected.
+    - \`logFile\`: The location of the log file.
     - \`message\`: Confirmation message of server start and log file location.
   `,
-  'command_list': `
+      'command_list': `
   **command_list**
   
   - **Description:** List all running commands and PTY sessions within the sandbox environment.
@@ -362,8 +356,7 @@ class E2BCode extends Tool {
   - **Required Parameters:**
     - \`sessionId\`
   `,
-
-  'command_kill': `
+      'command_kill': `
   **command_kill**
   
   - **Description:** Kill a running command specified by its process ID.
@@ -372,7 +365,6 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`pid\`: Process ID of the command to kill.
   `,
-  
       'processinfo': `
   **processinfo**
   
@@ -382,8 +374,7 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`pid\`: Process ID of the command to get information about.
   `,
-
-  'system_install': `
+      'system_install': `
   **system_install**
   
   - **Description:** Install system packages within the sandbox environment using \`sudo apt-get install\`.
@@ -395,9 +386,8 @@ class E2BCode extends Tool {
   - **Optional Parameters:**
     - \`envs\`: Environment variables to set for this installation.
   `,
-
     };
-  
+
     return helpTexts[commandName];
   }
 
@@ -405,7 +395,7 @@ class E2BCode extends Tool {
     const {
       sessionId,
       sandboxId,
-      code,
+      packages,
       language = 'python',
       action,
       cmd,
@@ -422,21 +412,29 @@ class E2BCode extends Tool {
       command_name,
       logFile,
       pid,
+      template,
     } = input;
 
-    // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes
-    if (action !== 'help' && action !== 'list_sandboxes' && (!sessionId || !sandboxId)) {
-      logger.error('[E2BCode] `sessionId` is required for all action except help and list_sandboes', {
+    // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes, and create
+    if (
+      action !== 'help' &&
+      action !== 'list_sandboxes' &&
+      action !== 'create' &&
+      (!sessionId || (!sandboxId && action !== 'create'))
+    ) {
+      logger.error('[E2BCode] `sessionId` is required for most actions', {
         action,
       });
     }
 
-    if (timeoutMs < 1000) {
-      timeoutMs = 1000;
+    let adjustedTimeoutMs = timeoutMs;
+    if (adjustedTimeoutMs < 1000) {
+      adjustedTimeoutMs = 1000;
     }
 
-    if (timeout < 1) {
-      timeout = 1;
+    let adjustedTimeout = timeout;
+    if (adjustedTimeout < 1) {
+      adjustedTimeout = 1;
     }
 
     logger.debug('[E2BCode] Processing request', {
@@ -480,59 +478,63 @@ class E2BCode extends Tool {
               'command_kill',
               'processinfo',
             ];
-            const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command.`;
+            const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command. You are HIGHLY encouraged to run help for system_install, command_run, shell and start_server to understand the differences between them and how to use them.`;
             return JSON.stringify({ message: overview });
           }
 
         case 'create': {
-            if (sandboxes.has(sessionId)) {
-              logger.error('[E2BCode] Sandbox already exists', { sessionId });
-              throw new Error(`Sandbox with sessionId ${sessionId} already exists.`);
-            }
-            logger.debug('[E2BCode] Creating new sandbox', {
-              sessionId,
-              timeout,
-            });
-            const sandboxOptions = {
-              apiKey: this.apiKey,
-              timeoutMs: timeout * 60 * 1000,
-            };
-            // Get hidden environment variables
-            const hiddenEnvVarsCreate = this.getHiddenEnvVars();
-            // Merge hidden env vars with any provided envs, without exposing hidden vars to the LLM
-            if (Object.keys(hiddenEnvVarsCreate).length > 0 || envs) {
-              sandboxOptions.env = {
-                ...hiddenEnvVarsCreate,
-                ...envs,
-              };
-            }
-            const sandboxCreate = await Sandbox.create(sandboxOptions);
-            sandboxes.set(sessionId, {
-              sandbox: sandboxCreate,
-              lastAccessed: Date.now(),
-              commands: new Map(),
-            });
-        
-            // Get current user and current directory inside the sandbox
-            const whoamiResult = await sandboxCreate.commands.run('whoami');
-            const currentUser = whoamiResult.stdout.trim();
-        
-            const pwdResult = await sandboxCreate.commands.run('pwd');
-            const currentDirectory = pwdResult.stdout.trim();
-        
-            // Get sandbox ID
-            const sandboxId = sandboxCreate.sandboxId;
-        
-            return JSON.stringify({
-              sessionId,
-              sandboxId,
-              currentUser,
-              currentDirectory,
-              success: true,
-              message: `Sandbox created with timeout ${timeout} minutes.`,
-            });
+          if (sandboxes.has(sessionId)) {
+            logger.error('[E2BCode] Sandbox already exists', { sessionId });
+            throw new Error(`Sandbox with sessionId ${sessionId} already exists.`);
           }
-          break;
+          logger.debug('[E2BCode] Creating new sandbox', {
+            sessionId,
+            timeout: adjustedTimeout,
+          });
+          const sandboxCreateOptions = {
+            apiKey: this.apiKey,
+            timeoutMs: adjustedTimeout * 60 * 1000,
+          };
+
+          // Get hidden environment variables
+          const hiddenEnvVarsCreate = this.getHiddenEnvVars();
+          // Merge hidden env vars with any provided envs, without exposing hidden vars to the LLM
+          if (Object.keys(hiddenEnvVarsCreate).length > 0 || envs) {
+            sandboxCreateOptions.env = {
+              ...hiddenEnvVarsCreate,
+              ...envs,
+            };
+          }
+
+          // If template is not provided, use a default template, e.g. 'ubuntu-latest'
+          const sandboxTemplate = template || 'ubuntu-latest';
+
+          const sandboxCreate = await Sandbox.create(sandboxTemplate, sandboxCreateOptions);
+          sandboxes.set(sessionId, {
+            sandbox: sandboxCreate,
+            lastAccessed: Date.now(),
+            commands: new Map(),
+          });
+
+          // Get current user and current directory inside the sandbox
+          const whoamiResult = await sandboxCreate.commands.run('whoami');
+          const currentUser = whoamiResult.stdout.trim();
+
+          const pwdResult = await sandboxCreate.commands.run('pwd');
+          const currentDirectory = pwdResult.stdout.trim();
+
+          // Get sandbox ID
+          const createdSandboxId = sandboxCreate.sandboxId;
+
+          return JSON.stringify({
+            sessionId,
+            sandboxId: createdSandboxId,
+            currentUser,
+            currentDirectory,
+            success: true,
+            message: `Sandbox created from template '${sandboxTemplate}' with timeout ${adjustedTimeout} minutes.`,
+          });
+        }
 
         case 'list_sandboxes':
           logger.debug('[E2BCode] Listing all active sandboxes');
@@ -546,12 +548,11 @@ class E2BCode extends Tool {
             }
             // Map sandbox info to include sandboxId and any other relevant details
             const sandboxDetails = sandboxesList.map((sandbox) => {
-              const [id] = sandbox.sandboxId.split('-'); // Split at '-' and take the first part
+              const [id] = sandbox.sandboxId.split('-');
               return {
                 sandboxId: id,
                 createdAt: sandbox.createdAt,
                 status: sandbox.status,
-                // Include any other relevant details
               };
             });
             return JSON.stringify({
@@ -566,63 +567,58 @@ class E2BCode extends Tool {
           }
 
         case 'kill':
-            let sandboxId = input.sandboxId;
-            let sandboxToKill;
-  
-            if (!sandboxId) {
-              // Try to get it from sessionId mapping
-              if (sandboxes.has(sessionId)) {
-                const sandboxInfo = sandboxes.get(sessionId);
-                sandboxId = sandboxInfo.sandbox.sandboxId;
-              }
+          let killSandboxId = sandboxId;
+          if (!killSandboxId) {
+            // Try to get it from sessionId mapping
+            if (sandboxes.has(sessionId)) {
+              const sandboxInfo = sandboxes.get(sessionId);
+              killSandboxId = sandboxInfo.sandbox.sandboxId;
             }
-            if (!sandboxId) {
-              logger.error('[E2BCode] No sandboxId or sessionId provided to kill', { sessionId });
-              throw new Error(`No sandboxId or sessionId provided. Cannot kill sandbox.`);
+          }
+          if (!killSandboxId) {
+            logger.error('[E2BCode] No sandboxId or sessionId provided to kill', { sessionId });
+            throw new Error(`No sandboxId or sessionId provided. Cannot kill sandbox.`);
+          }
+          const [validSandboxId] = killSandboxId.split('-');
+          logger.debug('[E2BCode] Killing sandbox', { sessionId, validSandboxId });
+          let sandboxToKill;
+          try {
+            sandboxToKill = await Sandbox.connect(validSandboxId, { apiKey: this.apiKey });
+          } catch (error) {
+            logger.error('[E2BCode] Error connecting to sandbox to kill', { sessionId, validSandboxId, error: error.message });
+            if (sandboxes.has(sessionId)) {
+              sandboxes.delete(sessionId);
             }
-            // Remove the suffix after '-'
-            const [validSandboxId] = sandboxId.split('-');
-            logger.debug('[E2BCode] Killing sandbox', { sessionId, validSandboxId });
-            try {
-                sandboxToKill = await Sandbox.connect(validSandboxId, { apiKey: this.apiKey });
-            } catch (error) {
-                logger.error('[E2BCode] Error connecting to sandbox to kill', { sessionId, validSandboxId, error: error.message });
-                // If connection fails, we assume sandbox does not exist (or was killed before) and remove it from our local sandboxes map if we have it
-                  if(sandboxes.has(sessionId)){
-                      sandboxes.delete(sessionId);
-                  }
-                return JSON.stringify({
-                  sessionId,
-                  success: false,
-                  message: `No sandbox found with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
-                });
-            }
-            
-            try {
-              await sandboxToKill.kill();
-            } catch (error) {
-              logger.error('[E2BCode] Error killing sandbox', { sessionId, validSandboxId, error: error.message });
-                // If kill fails, we assume sandbox was already killed or timed out and remove it from our local sandboxes map if we have it
-                if(sandboxes.has(sessionId)){
-                  sandboxes.delete(sessionId);
-                }
-              return JSON.stringify({
-                  sessionId,
-                  success: false,
-                  message: `Failed to kill sandbox with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
-              });
-            }
-            
-              // If kill is succesful we delete it from sandboxes map
-            if (sandboxes.has(sessionId)){
-                  sandboxes.delete(sessionId);
-            }
-  
             return JSON.stringify({
               sessionId,
-              success: true,
-              message: `Sandbox with sessionId ${sessionId} and sandboxId ${validSandboxId} has been killed.`,
+              success: false,
+              message: `No sandbox found with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
             });
+          }
+
+          try {
+            await sandboxToKill.kill();
+          } catch (error) {
+            logger.error('[E2BCode] Error killing sandbox', { sessionId, validSandboxId, error: error.message });
+            if (sandboxes.has(sessionId)) {
+              sandboxes.delete(sessionId);
+            }
+            return JSON.stringify({
+              sessionId,
+              success: false,
+              message: `Failed to kill sandbox with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
+            });
+          }
+
+          if (sandboxes.has(sessionId)) {
+            sandboxes.delete(sessionId);
+          }
+
+          return JSON.stringify({
+            sessionId,
+            success: true,
+            message: `Sandbox with sessionId ${sessionId} and sandboxId ${validSandboxId} has been killed.`,
+          });
 
         case 'set_timeout':
           if (!sandboxes.has(sessionId)) {
@@ -640,14 +636,14 @@ class E2BCode extends Tool {
           }
           logger.debug('[E2BCode] Setting sandbox timeout', {
             sessionId,
-            timeout,
+            timeout: adjustedTimeout,
           });
           const { sandbox: sandboxSetTimeout } = sandboxes.get(sessionId);
-          await sandboxSetTimeout.setTimeout(timeout * 60 * 1000);
+          await sandboxSetTimeout.setTimeout(adjustedTimeout * 60 * 1000);
           return JSON.stringify({
             sessionId,
             success: true,
-            message: `Sandbox timeout updated to ${timeout} minutes.`,
+            message: `Sandbox timeout updated to ${adjustedTimeout} minutes.`,
           });
 
         default:
@@ -658,7 +654,6 @@ class E2BCode extends Tool {
           const hiddenEnvVars = this.getHiddenEnvVars();
 
           switch (action) {
-
             case 'shell':
               if (!cmd) {
                 logger.error('[E2BCode] Command (cmd) missing for shell action', {
@@ -792,20 +787,20 @@ class E2BCode extends Tool {
               });
 
             case 'install':
-              if (!code) {
+              if (!packages || packages.length === 0) {
                 logger.error(
-                  '[E2BCode] Package name missing for install action',
+                  '[E2BCode] Packages missing for install action',
                   {
                     sessionId,
                     language,
                   }
                 );
-                throw new Error('Package name is required for `install` action.');
+                throw new Error('`packages` array is required for `install` action.');
               }
-              logger.debug('[E2BCode] Installing package', {
+              logger.debug('[E2BCode] Installing packages', {
                 sessionId,
                 language,
-                package: code,
+                packages,
               });
               const installOptions = {};
               if (Object.keys(hiddenEnvVars).length > 0 || envs) {
@@ -816,7 +811,7 @@ class E2BCode extends Tool {
               }
               if (language === 'python') {
                 const pipResult = await sandbox.commands.run(
-                  `pip install ${code}`,
+                  `pip install ${packages.join(' ')}`,
                   installOptions
                 );
                 logger.debug(
@@ -834,7 +829,7 @@ class E2BCode extends Tool {
                 });
               } else if (language === 'javascript' || language === 'typescript') {
                 const npmResult = await sandbox.commands.run(
-                  `npm install ${code}`,
+                  `npm install ${packages.join(' ')}`,
                   installOptions
                 );
                 logger.debug(
@@ -850,14 +845,15 @@ class E2BCode extends Tool {
                   output: npmResult.stdout,
                   error: npmResult.stderr,
                 });
+              } else {
+                logger.error(
+                  '[E2BCode] Unsupported language for package installation',
+                  { sessionId, language }
+                );
+                throw new Error(
+                  `Unsupported language for package installation: ${language}`
+                );
               }
-              logger.error(
-                '[E2BCode] Unsupported language for package installation',
-                { sessionId, language }
-              );
-              throw new Error(
-                `Unsupported language for package installation: ${language}`
-              );
 
             case 'get_file_downloadurl':
               if (!filePath) {
@@ -906,35 +902,34 @@ class E2BCode extends Tool {
               });
 
             case 'system_install':
-                if (!packages || packages.length === 0) {
-                  logger.error('[E2BCode] Packages missing for system_install action', { sessionId });
-                  throw new Error('`packages` array is required for `system_install` action.');
-                }
-                logger.debug('[E2BCode] Installing system packages', {
-                  sessionId,
-                  packages,
-                });
-                const aptGetInstallCommand = `sudo apt-get update && sudo apt-get install -y ${packages.join(' ')}`;
-                const systemInstallOptions = {};
-                if (Object.keys(hiddenEnvVars).length > 0 || envs) {
-                  installOptions.envs = {
-                    ...hiddenEnvVars,
-                    ...envs,
-                  };
-                }
-                const aptGetResult = await sandbox.commands.run(aptGetInstallCommand, systemInstallOptions);
-                logger.debug('[E2BCode] System package installation completed', {
-                  sessionId,
-                  success: aptGetResult.exitCode === 0,
-                });
-                return JSON.stringify({
-                  sessionId,
-                  success: aptGetResult.exitCode === 0,
-                  output: aptGetResult.stdout,
-                  error: aptGetResult.stderr,
-                });
+              if (!packages || packages.length === 0) {
+                logger.error('[E2BCode] Packages missing for system_install action', { sessionId });
+                throw new Error('`packages` array is required for `system_install` action.');
+              }
+              logger.debug('[E2BCode] Installing system packages', {
+                sessionId,
+                packages,
+              });
+              const aptGetInstallCommand = `sudo apt-get update && sudo apt-get install -y ${packages.join(' ')}`;
+              const systemInstallOptions = {};
+              if (Object.keys(hiddenEnvVars).length > 0 || envs) {
+                systemInstallOptions.envs = {
+                  ...hiddenEnvVars,
+                  ...envs,
+                };
+              }
+              const aptGetResult = await sandbox.commands.run(aptGetInstallCommand, systemInstallOptions);
+              logger.debug('[E2BCode] System package installation completed', {
+                sessionId,
+                success: aptGetResult.exitCode === 0,
+              });
+              return JSON.stringify({
+                sessionId,
+                success: aptGetResult.exitCode === 0,
+                output: aptGetResult.stdout,
+                error: aptGetResult.stderr,
+              });
 
-            // Commands SDK
             case 'command_run':
               if (!cmd) {
                 logger.error('[E2BCode] `cmd` is missing for command_run action', {
@@ -954,8 +949,8 @@ class E2BCode extends Tool {
               if (cwd) {
                 commandOptions.cwd = cwd;
               }
-              if (timeoutMs) {
-                commandOptions.timeoutMs = timeoutMs;
+              if (adjustedTimeoutMs) {
+                commandOptions.timeoutMs = adjustedTimeoutMs;
               }
               if (user) {
                 commandOptions.user = user;
@@ -993,7 +988,7 @@ class E2BCode extends Tool {
                   exitCode: commandResult.exitCode,
                   success: commandResult.exitCode === 0,
                 });
-            }
+              }
 
             case 'start_server':
               if (!cmd) {
@@ -1026,8 +1021,8 @@ class E2BCode extends Tool {
               if (cwd) {
                 serverOptions.cwd = cwd;
               }
-              if (timeoutMs) {
-                serverOptions.timeoutMs = timeoutMs;
+              if (adjustedTimeoutMs) {
+                serverOptions.timeoutMs = adjustedTimeoutMs;
               }
               if (user) {
                 serverOptions.user = user;
@@ -1055,11 +1050,10 @@ class E2BCode extends Tool {
                 commandId: serverCommandId,
                 success: true,
                 serverHost,
-                port,
                 logFile,
                 message: `Server started with ID ${serverCommandId}, accessible at ${serverHost}:${port}. Logs are redirected to ${logFile}`,
               });
-              
+
             case 'command_list':
               // Retrieve the list of running commands and PTY sessions
               const processList = await sandbox.commands.list();
@@ -1067,7 +1061,6 @@ class E2BCode extends Tool {
                 sessionId,
                 processCount: processList.length,
               });
-      
               return JSON.stringify({
                 sessionId,
                 success: true,
@@ -1108,7 +1101,7 @@ class E2BCode extends Tool {
                   message: `Failed to kill process with PID ${pid}.`,
                 });
               }
-          
+
             case 'processinfo':
               if (pid === undefined) {
                 logger.error(
@@ -1143,7 +1136,7 @@ class E2BCode extends Tool {
                   success: false,
                   message: `No process found with PID ${pid}.`,
                 });
-              }            
+              }
 
             default:
               logger.error('[E2BCode] Unknown action requested', {
