@@ -8,6 +8,9 @@ const StructuredSD = require('./structured/StableDiffusion');
 const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const TavilySearchResults = require('./structured/TavilySearchResults');
+const FluxAPI = require('./structured/FluxAPI');
+const WebNavigator = require('./structured/WebNavigator');
+const E2BCode = require('./structured/E2BCode');
 
 module.exports = {
   availableTools,
@@ -19,4 +22,7 @@ module.exports = {
   TraversaalSearch,
   StructuredWolfram,
   TavilySearchResults,
+  FluxAPI,
+  WebNavigator,
+  E2BCode,
 };
