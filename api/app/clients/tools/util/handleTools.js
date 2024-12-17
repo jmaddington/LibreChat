@@ -14,8 +14,6 @@ const {
   TraversaalSearch,
   StructuredWolfram,
   TavilySearchResults,
-  FluxAPI,
-  WebNavigator,
   E2BCode,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
@@ -163,8 +161,6 @@ const loadTools = async ({
     'azure-ai-search': StructuredACS,
     traversaal_search: TraversaalSearch,
     tavily_search_results_json: TavilySearchResults,
-    flux: FluxAPI,
-    WebNavigator: WebNavigator,
     E2BCode: E2BCode,
   };
 
