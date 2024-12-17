@@ -33,7 +33,7 @@ export default defineConfig({
     fs: {
       cachedChecks: false,
     },
-    host: 'localhost',
+    host: '0.0.0.0',
     port: 3090,
     strictPort: false,
     proxy: {
@@ -62,6 +62,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['assets/**/*.{png,jpg,svg,ico}', '**/*.{js,css,html,ico,woff2}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        navigateFallbackDenylist: [/^\/oauth/],
       },
       manifest: {
         name: 'LibreChat',
