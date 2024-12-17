@@ -17,6 +17,7 @@ const {
   FluxAPI,
   WebNavigator,
   E2BCode,
+  OpenWeather,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
 const { createFileSearchTool, primeFiles: primeSearchFiles } = require('./fileSearch');
@@ -166,6 +167,7 @@ const loadTools = async ({
     flux: FluxAPI,
     WebNavigator: WebNavigator,
     E2BCode: E2BCode,
+    OpenWeather: OpenWeather,
   };
 
   const customConstructors = {
