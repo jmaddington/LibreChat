@@ -11,6 +11,7 @@ const TavilySearchResults = require('./structured/TavilySearchResults');
 const FluxAPI = require('./structured/FluxAPI');
 const WebNavigator = require('./structured/WebNavigator');
 const E2BCode = require('./structured/E2BCode');
+const OpenWeather = require('./structured/OpenWeather');
 
 module.exports = {
   availableTools,
@@ -25,4 +26,5 @@ module.exports = {
   FluxAPI,
   WebNavigator,
   E2BCode,
+  OpenWeather,
 };
