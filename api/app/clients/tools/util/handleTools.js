@@ -15,6 +15,8 @@ const {
   StructuredWolfram,
   TavilySearchResults,
   FluxAPI,
+  WebNavigator,
+  E2BCode,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
 const { createFileSearchTool, primeFiles: primeSearchFiles } = require('./fileSearch');
@@ -162,6 +164,8 @@ const loadTools = async ({
     traversaal_search: TraversaalSearch,
     tavily_search_results_json: TavilySearchResults,
     flux: FluxAPI,
+    WebNavigator: WebNavigator,
+    E2BCode: E2BCode,
   };
 
   const customConstructors = {
@@ -201,6 +205,7 @@ const loadTools = async ({
   };
 
   const toolAuthFields = {};
+  toolAuthFields['flux'] = ['FLUX_API_KEY'];
 
   toolAuthFields['flux'] = ['FLUX_API_KEY'];
 
