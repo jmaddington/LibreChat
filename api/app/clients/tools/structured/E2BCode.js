@@ -281,7 +281,8 @@ class E2BCode extends Tool {
       'install': `
   **install**
   
-  - **Description:** Install a package within the sandbox environment.
+  - **Description:** Install a python or node package within the sandbox environment.
+  Use system_install for access to apt-get.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -316,6 +317,7 @@ class E2BCode extends Tool {
   **command_run**
   
   - **Description:** Start a new command and wait until it finishes executing, or run it in the background.
+  Use this for running most commands that do not require a PTY session.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -332,7 +334,8 @@ class E2BCode extends Tool {
       'start_server': `
   **start_server**
   
-  - **Description:** Start a server process in the sandbox environment by executing a command in the background, redirecting stdout and stderr to a specified log file, and returning the host and port information for accessing the server.
+  - **Description:** Use this to start a server process -- nginx, flask, etc. -- in the sandbox environment by executing a command in the background, 
+  redirecting stdout and stderr to a specified log file, and returning the host and port information for accessing the server.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -349,8 +352,7 @@ class E2BCode extends Tool {
   - **Returns:**
     - \`sessionId\`: The session ID for maintaining state.
     - \`commandId\`: The ID of the background command started.
-    - \`host\`: The host address to access the server.
-    - \`port\`: The port number to access the server.
+    - \`host\`: The host address to access the server. The port number is included in the URL and NOT appended to the end.
     - \`logFile\`: The location of the log file where stdout and stderr are redirected.
     - \`message\`: Confirmation message of server start and log file location.
   `,
@@ -387,6 +389,7 @@ class E2BCode extends Tool {
   **system_install**
   
   - **Description:** Install system packages within the sandbox environment using \`sudo apt-get install\`.
+  Use install for python and node packages.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -480,7 +483,7 @@ class E2BCode extends Tool {
               'command_kill',
               'processinfo',
             ];
-            const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command.`;
+            const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command. You are HIGHLY encouraged to run help for system_install, command_run, shell and start_server to understand the differences between them and how to use them.`;
             return JSON.stringify({ message: overview });
           }
 
@@ -1055,7 +1058,6 @@ class E2BCode extends Tool {
                 commandId: serverCommandId,
                 success: true,
                 serverHost,
-                port,
                 logFile,
                 message: `Server started with ID ${serverCommandId}, accessible at ${serverHost}:${port}. Logs are redirected to ${logFile}`,
               });
