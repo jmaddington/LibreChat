@@ -344,8 +344,8 @@ class E2BCode extends Tool {
   - **Returns:**
     - \`sessionId\`: The session ID.
     - \`commandId\`: The ID of the background command started.
-    - \`host\`: The host address to access the server. The port number is included in the URL and NOT appended to the end.
-    - \`logFile\`: The location of the log file where stdout and stderr are redirected.
+    - \`host\`: The host address to access the server.
+    - \`logFile\`: The location of the log file.
     - \`message\`: Confirmation message of server start and log file location.
   `,
       'command_list': `
@@ -378,7 +378,6 @@ class E2BCode extends Tool {
   **system_install**
   
   - **Description:** Install system packages within the sandbox environment using \`sudo apt-get install\`.
-  Use install for python and node packages.
   
   - **Required Parameters:**
     - \`sessionId\`
