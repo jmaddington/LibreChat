@@ -23,7 +23,7 @@ module.exports = {
   TraversaalSearch,
   StructuredWolfram,
   TavilySearchResults,
-  FluxAPI
+  FluxAPI,
   WebNavigator,
   E2BCode,
   OpenWeather,
