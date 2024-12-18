@@ -62,6 +62,7 @@ class E2BCode extends Tool {
           'command_list',
           'command_kill',
           'processinfo',
+          'system_install',
         ])
         .describe('The action to perform.'),
       template: z
@@ -70,14 +71,10 @@ class E2BCode extends Tool {
         .describe(
           'Sandbox template name or ID to create the sandbox from (used with `create` action).'
         ),
-      code: z
-        .string()
-        .optional()
-        .describe('The package to install (required `install` actions).'),
       language: z
         .enum(['python', 'javascript', 'typescript', 'shell'])
         .optional()
-        .describe('The programming language to use. Defaults to `python`.'),
+        .describe('The programming language environment for installs. Defaults to `python`.'),
       cmd: z
         .string()
         .optional()
@@ -152,7 +149,7 @@ class E2BCode extends Tool {
         .record(z.string(), z.string())
         .optional()
         .describe(
-          'Environment variables to set when creating the sandbox (used with `create` action) and for specific executions (used with `shell`, `install`, `command_run`, `start_server`, and `command_list` actions).'
+          'Environment variables to set when creating the sandbox (used with `create` action) and for other actions that run commands.'
         ),
       command_name: z
         .string()
@@ -167,6 +164,10 @@ class E2BCode extends Tool {
         .describe(
           'Process ID of the command to kill (required for `command_kill` action) or get info (required for `processinfo` action).'
         ),
+      packages: z
+        .array(z.string())
+        .optional()
+        .describe('List of packages to install (used with `install` and `system_install` actions).')
     });
   }
 
@@ -276,15 +277,15 @@ class E2BCode extends Tool {
       'install': `
   **install**
   
-  - **Description:** Install a python or node package within the sandbox environment.
-  Use system_install for access to apt-get.
+  - **Description:** Install python or node packages within the sandbox environment.
+  Use \`system_install\` for system packages.
   
   - **Required Parameters:**
     - \`sessionId\`
-    - \`code\`: The package name to install.
+    - \`packages\`: An array of package names to install.
   
   - **Optional Parameters:**
-    - \`language\`: The programming language package manager to use (\`python\` uses pip, \`javascript\`/\`typescript\` use npm). Defaults to \`python\`.
+    - \`language\`: The environment to use (\`python\` uses pip, \`javascript\` or \`typescript\` use npm). Defaults to \`python\`.
     - \`envs\`: Environment variables to set for this installation.
   `,
       'get_file_downloadurl': `
@@ -373,12 +374,10 @@ class E2BCode extends Tool {
     - \`sessionId\`
     - \`pid\`: Process ID of the command to get information about.
   `,
-
       'system_install': `
   **system_install**
   
   - **Description:** Install system packages within the sandbox environment using \`sudo apt-get install\`.
-  Use install for python and node packages.
   
   - **Required Parameters:**
     - \`sessionId\`
@@ -396,7 +395,7 @@ class E2BCode extends Tool {
     const {
       sessionId,
       sandboxId,
-      code,
+      packages,
       language = 'python',
       action,
       cmd,
@@ -414,12 +413,16 @@ class E2BCode extends Tool {
       logFile,
       pid,
       template,
-      packages,
     } = input;
 
-    // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes
-    if (action !== 'help' && action !== 'list_sandboxes' && (!sessionId || !sandboxId && action !== 'create')) {
-      logger.error('[E2BCode] `sessionId` is required for all action except help and list_sandboes', {
+    // Make sure we have sessionId or sandboxId for all actions except help and list_sandboxes, and create
+    if (
+      action !== 'help' &&
+      action !== 'list_sandboxes' &&
+      action !== 'create' &&
+      (!sessionId || (!sandboxId && action !== 'create'))
+    ) {
+      logger.error('[E2BCode] `sessionId` is required for most actions', {
         action,
       });
     }
@@ -784,20 +787,20 @@ class E2BCode extends Tool {
               });
 
             case 'install':
-              if (!code) {
+              if (!packages || packages.length === 0) {
                 logger.error(
-                  '[E2BCode] Package name missing for install action',
+                  '[E2BCode] Packages missing for install action',
                   {
                     sessionId,
                     language,
                   }
                 );
-                throw new Error('Package name is required for `install` action.');
+                throw new Error('`packages` array is required for `install` action.');
               }
-              logger.debug('[E2BCode] Installing package', {
+              logger.debug('[E2BCode] Installing packages', {
                 sessionId,
                 language,
-                package: code,
+                packages,
               });
               const installOptions = {};
               if (Object.keys(hiddenEnvVars).length > 0 || envs) {
@@ -808,7 +811,7 @@ class E2BCode extends Tool {
               }
               if (language === 'python') {
                 const pipResult = await sandbox.commands.run(
-                  `pip install ${code}`,
+                  `pip install ${packages.join(' ')}`,
                   installOptions
                 );
                 logger.debug(
@@ -826,7 +829,7 @@ class E2BCode extends Tool {
                 });
               } else if (language === 'javascript' || language === 'typescript') {
                 const npmResult = await sandbox.commands.run(
-                  `npm install ${code}`,
+                  `npm install ${packages.join(' ')}`,
                   installOptions
                 );
                 logger.debug(
@@ -842,14 +845,15 @@ class E2BCode extends Tool {
                   output: npmResult.stdout,
                   error: npmResult.stderr,
                 });
+              } else {
+                logger.error(
+                  '[E2BCode] Unsupported language for package installation',
+                  { sessionId, language }
+                );
+                throw new Error(
+                  `Unsupported language for package installation: ${language}`
+                );
               }
-              logger.error(
-                '[E2BCode] Unsupported language for package installation',
-                { sessionId, language }
-              );
-              throw new Error(
-                `Unsupported language for package installation: ${language}`
-              );
 
             case 'get_file_downloadurl':
               if (!filePath) {
