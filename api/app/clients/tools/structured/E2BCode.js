@@ -4,6 +4,10 @@ const { getEnvironmentVariable } = require('@langchain/core/utils/env');
 const { Sandbox } = require('@e2b/code-interpreter');
 const { logger } = require('~/config');
 
+const MAX_OUTPUT_LENGTH = 10000; // 10k characters
+const MAX_TAIL_LINES = 20;
+const MAX_TAIL_BYTES = 2000; // ~2KB
+
 // Store active sandboxes with their session IDs
 const sandboxes = (global.sandboxes = global.sandboxes || new Map());
 
@@ -189,6 +193,29 @@ class E2BCode extends Tool {
       }
     });
     return hiddenEnvVars;
+  }
+
+  // If the output is too large, return an error message and the last 20 lines (up to 2KB).
+  safeReturn(obj) {
+    let str = JSON.stringify(obj);
+    if (str.length > MAX_OUTPUT_LENGTH) {
+      // Extract last 20 lines of the JSON output (based on newline).
+      const lines = str.split('\n');
+      const tailLines = lines.slice(-MAX_TAIL_LINES).join('\n');
+
+      // Truncate to 2KB if needed
+      let truncated = tailLines;
+      if (Buffer.byteLength(truncated, 'utf8') > MAX_TAIL_BYTES) {
+        truncated = truncated.slice(0, 2000);
+      }
+
+      // Return error message with truncated output
+      return JSON.stringify({
+        error: 'Output too long. We are truncating the output. If you need more, please rerun the command and redirect the output to a log file that you can tail if needed.',
+        truncated_tail: truncated
+      });
+    }
+    return str;
   }
 
   getDetailedHelp(commandName) {
