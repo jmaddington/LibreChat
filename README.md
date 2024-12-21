@@ -11,6 +11,7 @@ This fork is a personal project to add a few features to LibreChat and integrate
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
 - Flux AI plugin added to the tools list.
+- OpenWeather plugin added to the tools list.
 
 ### Why E2B?
 LibreChat recently introduced their own code interpreter service. It's affordable, integrates seamlessly with their platform, and provides a viable revenue stream. So why not use it?
