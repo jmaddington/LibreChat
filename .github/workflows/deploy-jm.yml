@@ -2,7 +2,6 @@ name: Docker Build and Push to GHCR
 
 on:
   workflow_dispatch:
-
   push:
     branches:
       - jm-production
@@ -11,7 +10,6 @@ jobs:
   deploy-gh-runner-aci:
     runs-on: ubuntu-latest
     steps:
-      # checkout the repo
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
         with:
@@ -31,6 +29,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
+          file: dockerfile.multi
           push: true
           tags: ghcr.io/jmaddington/librechat:latest
 
