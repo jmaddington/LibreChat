@@ -18,12 +18,19 @@ const {
   WebNavigator,
   E2BCode,
   OpenWeather,
+  FluxAPI,
+  WebNavigator,
+  E2BCode,
+  OpenWeather,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
 const { createFileSearchTool, primeFiles: primeSearchFiles } = require('./fileSearch');
 const { createMCPTool } = require('~/server/services/MCP');
+const { createMCPTool } = require('~/server/services/MCP');
 const { loadSpecs } = require('./loadSpecs');
 const { logger } = require('~/config');
+
+const mcpToolPattern = new RegExp(`^.+${Constants.mcp_delimiter}.+$`);
 
 const mcpToolPattern = new RegExp(`^.+${Constants.mcp_delimiter}.+$`);
 
@@ -226,8 +233,6 @@ const loadTools = async ({
   };
 
   const toolAuthFields = {};
-  toolAuthFields['flux'] = ['FLUX_API_KEY'];
-
   toolAuthFields['flux'] = ['FLUX_API_KEY'];
 
   availableTools.forEach((tool) => {
