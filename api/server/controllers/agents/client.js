@@ -497,6 +497,7 @@ class AgentClient extends BaseClient {
         signal: abortController.signal,
         streamMode: 'values',
         version: 'v2',
+        recursionLimit: 100,
       };
 
       const initialMessages = formatAgentMessages(payload);
