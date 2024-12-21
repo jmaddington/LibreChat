@@ -533,10 +533,32 @@ class E2BCode extends Tool {
             };
           }
 
-          // If template is not provided, use a default template, e.g. 'ubuntu-latest'
-          const sandboxTemplate = template || 'ubuntu-latest';
+          let sandboxCreate;
+          let skippedTemplate = false;
+          //Try to use a template if provided:
+          if (template) {
+              try {
+              sandboxCreate = await Sandbox.create(template, sandboxCreateOptions);
+            } catch (error) {
+              //Try without a template:
+              try {
+                sandboxCreate = await Sandbox.create(sandboxCreateOptions);
+                skippedTemplate = true;
+              } catch (error) {
+                logger.error('[E2BCode] Error creating sandbox', { sessionId, error: error.message });
+                throw new Error(`Error creating sandbox: ${error.message}`);
+              }
+            }
+          } else {
+            //Try without a template:
+            try {
+              sandboxCreate = await Sandbox.create(sandboxCreateOptions);
+            } catch (error) {
+              logger.error('[E2BCode] Error creating sandbox', { sessionId, error: error.message });
+              throw new Error(`Error creating sandbox: ${error.message}`);
+            }
+          }
 
-          const sandboxCreate = await Sandbox.create(sandboxTemplate, sandboxCreateOptions);
           sandboxes.set(sessionId, {
             sandbox: sandboxCreate,
             lastAccessed: Date.now(),
@@ -553,13 +575,23 @@ class E2BCode extends Tool {
           // Get sandbox ID
           const createdSandboxId = sandboxCreate.sandboxId;
 
+          let message;
+          if (!skippedTemplate) {
+            message = `Sandbox created with sandboxId ${createdSandboxId} from template '${template}' with timeout ${adjustedTimeout} minutes.`;
+          } else {
+            message = `Sandbox created with sandboxId ${createdSandboxId} with timeout ${adjustedTimeout} minutes. There was an error attempting to use the template so none was used.`;
+          }
+
+          //Add the current user and current directory to the response
+          message += ` You are user ${currentUser} and current directory is ${currentDirectory}.`;
+
           return JSON.stringify({
             sessionId,
             sandboxId: createdSandboxId,
             currentUser,
             currentDirectory,
             success: true,
-            message: `Sandbox created from template '${sandboxTemplate}' with timeout ${adjustedTimeout} minutes.`,
+            message: message,
           });
         }
 
