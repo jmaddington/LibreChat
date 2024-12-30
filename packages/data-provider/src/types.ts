@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import type OpenAI from 'openai';
 import type { InfiniteData } from '@tanstack/react-query';
 import type {
   TMessage,
@@ -12,8 +12,6 @@ import type {
 } from './schemas';
 import type { TSpecsConfig } from './models';
 export type TOpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam;
-export type TOpenAIFunction = OpenAI.Chat.ChatCompletionCreateParams.Function;
-export type TOpenAIFunctionCall = OpenAI.Chat.ChatCompletionCreateParams.FunctionCallOption;
 
 export * from './schemas';
 
@@ -197,11 +195,23 @@ export type TConversationTagRequest = Partial<
 
 export type TConversationTagResponse = TConversationTag;
 
-// type for tagging conversation
 export type TTagConversationRequest = {
   tags: string[];
+  tag: string;
 };
+
 export type TTagConversationResponse = string[];
+
+export type TDuplicateConvoRequest = {
+  conversationId?: string;
+};
+
+export type TDuplicateConvoResponse =
+  | {
+      conversation: TConversation;
+      messages: TMessage[];
+    }
+  | undefined;
 
 export type TForkConvoRequest = {
   messageId: string;
