@@ -185,7 +185,9 @@ class E2BCode extends Tool {
       packages: z
         .array(z.string())
         .optional()
-        .describe('List of packages to install (used with `install` and `system_install` actions).')
+        .describe(
+          'List of packages to install (used with `install` and `system_install` actions).'
+        )
     });
   }
 
@@ -196,6 +198,7 @@ class E2BCode extends Tool {
   errorResponse(sessionId, errorMessage, context = {}) {
     logger.error('[E2BCode] ' + errorMessage, context);
     return JSON.stringify({
+      // If sessionId is falsy, default to empty string
       sessionId: sessionId || '',
       error: errorMessage,
       success: false,
@@ -210,6 +213,7 @@ class E2BCode extends Tool {
   getApiKey(envVar, override) {
     const key = getEnvironmentVariable(envVar);
     if (!key && !override) {
+      // We don't have a sessionId in the constructor, so just pass ''
       return this.errorResponse(
         '',
         `Missing ${envVar} environment variable`
@@ -488,18 +492,18 @@ class E2BCode extends Tool {
     } = input;
 
     // sessionId check for most actions
-    if (
-      action !== 'help' &&
-      action !== 'list_sandboxes' &&
-      action !== 'create' &&
-      (!sessionId || (!sandboxId && action !== 'create'))
-    ) {
-      return this.errorResponse(
-        '',
-        '`sessionId` is required for most actions',
-        { action }
-      );
-    }
+      if (
+        action !== 'help' &&
+        action !== 'list_sandboxes' &&
+        action !== 'create' &&
+        !sessionId
+      ) {
+        return this.errorResponse(
+          sessionId || '',
+          '`sessionId` is required for most actions',
+          { action }
+        );
+      }
 
     let adjustedTimeoutMs = timeoutMs < 1000 ? 1000 : timeoutMs;
     let adjustedTimeout = timeout < 1 ? 1 : timeout;
@@ -551,7 +555,7 @@ class E2BCode extends Tool {
         // If we already have a sandbox for this session, that's an error
         if (sandboxes.has(sessionId)) {
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             `Sandbox with sessionId ${sessionId} already exists.`
           );
         }
@@ -589,7 +593,7 @@ class E2BCode extends Tool {
               skippedTemplate = true;
             } catch (error2) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 `Error creating sandbox: ${error2.message}`,
                 { error: error2.message }
               );
@@ -601,7 +605,7 @@ class E2BCode extends Tool {
             sandboxCreate = await Sandbox.create(sandboxCreateOptions);
           } catch (error) {
             return this.errorResponse(
-              sessionId,
+              sessionId || '',
               `Error creating sandbox: ${error.message}`,
               { error: error.message }
             );
@@ -646,8 +650,9 @@ class E2BCode extends Tool {
         try {
           sandboxesList = await Sandbox.list({ apiKey: this.apiKey });
         } catch (error) {
+          // Make sure we pass sessionId if we have it
           return this.errorResponse(
-            '',
+            sessionId || '',
             'Error listing sandboxes: ' + error.message,
             { error: error.message }
           );
@@ -686,7 +691,7 @@ class E2BCode extends Tool {
         }
         if (!killSandboxId) {
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             'No sandboxId or sessionId provided. Cannot kill sandbox.',
             { sessionId }
           );
@@ -706,7 +711,7 @@ class E2BCode extends Tool {
             sandboxes.delete(sessionId);
           }
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             `No sandbox found with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
             { validSandboxId, error: error.message }
           );
@@ -719,7 +724,7 @@ class E2BCode extends Tool {
             sandboxes.delete(sessionId);
           }
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             `Failed to kill sandbox with sandboxId ${validSandboxId} and sessionId ${sessionId}.`,
             { validSandboxId, error: error.message }
           );
@@ -739,13 +744,13 @@ class E2BCode extends Tool {
       case 'set_timeout': {
         if (!sandboxes.has(sessionId)) {
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             `No sandbox found with sessionId ${sessionId}.`
           );
         }
         if (!timeout) {
           return this.errorResponse(
-            sessionId,
+            sessionId || '',
             '`timeout` is required for `set_timeout` action.'
           );
         }
@@ -772,7 +777,7 @@ class E2BCode extends Tool {
         } catch (err) {
           // getSandboxInfo logs error; we just return error JSON
           return JSON.stringify({
-            sessionId,
+            sessionId: sessionId || '',
             error: err.message,
             success: false,
             helpHint: "You can use the 'help' action to learn how to properly use a specific action."
@@ -786,7 +791,7 @@ class E2BCode extends Tool {
           case 'shell': {
             if (!cmd) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 'Command (cmd) is required for `shell` action.'
               );
             }
@@ -835,7 +840,7 @@ class E2BCode extends Tool {
           case 'kill_command': {
             if (!commandId) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`commandId` is required for `kill_command` action.'
               );
             }
@@ -847,7 +852,7 @@ class E2BCode extends Tool {
             const commandToKill = sandboxInfo.commands.get(commandId);
             if (!commandToKill) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 `No background command found with ID ${commandId}.`,
                 { commandId }
               );
@@ -865,7 +870,7 @@ class E2BCode extends Tool {
           case 'write_file': {
             if (!filePath || !fileContent) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`filePath` and `fileContent` are required for `write_file` action.',
                 {
                   hasFilePath: !!filePath,
@@ -890,7 +895,7 @@ class E2BCode extends Tool {
           case 'read_file': {
             if (!filePath) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`filePath` is required for `read_file` action.'
               );
             }
@@ -911,7 +916,7 @@ class E2BCode extends Tool {
           case 'install': {
             if (!packages || packages.length === 0) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`packages` array is required for `install` action.',
                 { language }
               );
@@ -951,7 +956,7 @@ class E2BCode extends Tool {
               });
             } else {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 `Unsupported language for package installation: ${language}`
               );
             }
@@ -960,7 +965,7 @@ class E2BCode extends Tool {
           case 'get_file_downloadurl': {
             if (!filePath) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`filePath` is required for `get_file_downloadurl` action.'
               );
             }
@@ -985,7 +990,7 @@ class E2BCode extends Tool {
           case 'get_host': {
             if (!port) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`port` is required for `get_host` action.'
               );
             }
@@ -1005,7 +1010,7 @@ class E2BCode extends Tool {
           case 'system_install': {
             if (!packages || packages.length === 0) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`packages` array is required for `system_install` action.'
               );
             }
@@ -1035,7 +1040,7 @@ class E2BCode extends Tool {
           case 'command_run': {
             if (!cmd) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`cmd` is required for `command_run` action.'
               );
             }
@@ -1087,19 +1092,19 @@ class E2BCode extends Tool {
           case 'start_server': {
             if (!cmd) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`cmd` is required for `start_server` action.'
               );
             }
             if (!port) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`port` is required for `start_server` action.'
               );
             }
             if (!logFile) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`logFile` is required for `start_server` action.'
               );
             }
@@ -1164,7 +1169,7 @@ class E2BCode extends Tool {
           case 'command_kill': {
             if (pid === undefined) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`pid` is required for `command_kill` action.'
               );
             }
@@ -1185,7 +1190,7 @@ class E2BCode extends Tool {
               });
             } else {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 `Failed to kill process with PID ${pid}.`
               );
             }
@@ -1194,7 +1199,7 @@ class E2BCode extends Tool {
           case 'processinfo': {
             if (pid === undefined) {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 '`pid` is required for `processinfo` action.'
               );
             }
@@ -1217,7 +1222,7 @@ class E2BCode extends Tool {
               });
             } else {
               return this.errorResponse(
-                sessionId,
+                sessionId || '',
                 `No process found with PID ${pid}.`
               );
             }
@@ -1225,7 +1230,7 @@ class E2BCode extends Tool {
 
           default:
             return this.errorResponse(
-              sessionId,
+              sessionId || '',
               `Unknown action: ${action}`,
               { action }
             );
