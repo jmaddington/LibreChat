@@ -222,7 +222,7 @@ const loadTools = async ({
     serpapi: { location: 'Austin,Texas,United States', hl: 'en', gl: 'us' },
     dalle: imageGenOptions,
     'stable-diffusion': imageGenOptions,
-    'flux' : imageGenOptions,
+    flux: imageGenOptions,
   };
 
   const toolAuthFields = {};
