@@ -49,7 +49,19 @@ class FluxAPI extends Tool {
       // 10. Do not mention or list download links, as they are available in the UI already.
       // 11. Do not repeat the prompt or provide any captions or alt text.
       // 12. Do not add any other commentary or explanations about the image.
+      
       // 13. If more than one image is generated, embed each image separately in the response.
+      // - Default to the endpoint /v1/flux-pro-1.1 unless the user says otherwise.
+      // - Upsample if the user says so.
+      // - **Include the generated image(s) in your text response to the user by embedding the Markdown links.**
+      // - **Include the prompt you created for flux in your response so the user can see what you generated.**
+      
+      /* Available endpoints:
+       - /v1/flux-pro-1.1
+       - /v1/flux-pro
+       - /v1/flux-dev
+       - /v1/flux-pro-1.1-ultra
+      */
     `;
 
     // Define the schema for structured input
