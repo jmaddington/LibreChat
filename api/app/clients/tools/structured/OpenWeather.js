@@ -56,7 +56,7 @@ function roundTemperatures(obj) {
   return obj;
 }
 
-class OpenWeather extends StructuredTool {
+class OpenWeather extends Tool {
   name = 'OpenWeather';
   description = 'Provides weather data from OpenWeather One Call API 3.0. ' +
                 'Actions: help, current_forecast, timestamp, daily_aggregation, overview. ' +
