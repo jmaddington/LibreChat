@@ -1,4 +1,4 @@
-const { StructuredTool } = require('langchain/tools');
+const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
 const { getEnvironmentVariable } = require('@langchain/core/utils/env');
 const fetch = require('node-fetch');
