@@ -179,7 +179,7 @@
     "name": "OpenWeather",
     "pluginKey": "OpenWeather",
     "description": "Get weather forecasts and historical data from the OpenWeather API",
-    "icon": "/assets/flux.png",
+    "icon": "/assets/openweather.png",
     "isAuthRequired": "false",
     "authConfig": []
   }
