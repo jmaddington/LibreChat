@@ -3,6 +3,8 @@ const { Tool } = require('@langchain/core/tools');
 const { getEnvironmentVariable } = require('@langchain/core/utils/env');
 const { Sandbox } = require('@e2b/code-interpreter');
 const { logger } = require('~/config');
+const fs = require('fs');
+const YAML = require('yaml');
 
 const MAX_OUTPUT_LENGTH = 10000; // 10k characters
 const MAX_TAIL_LINES = 20;
@@ -32,6 +34,56 @@ class E2BCode extends Tool {
 
     const keySuffix = this.apiKey ? this.apiKey.slice(-5) : 'none';
     logger.debug('[E2BCode] Initialized with API key ' + `*****${keySuffix}`);
+
+    const fs = require('fs');
+    const YAML = require('yaml');
+
+    // Potential paths to check
+    const potentialPaths = [
+      '/app/e2btemplates.yml',
+      '/workspaces/e2btemplates.yml',
+      '/app/e2btemplates.yaml',
+      '/workspaces/e2btemplates.yaml'
+    ];
+
+    let loadedTemplates = [];
+
+    try {
+      // Log every path we check
+      for (const p of potentialPaths) {
+        logger.debug(`[E2BCode][DEBUG] Checking file existence for: ${p}`);
+        // If you see these logs in the output, you know the loop is running
+        const doesExist = fs.existsSync(p);
+        logger.debug(`[E2BCode][DEBUG] existsSync result for ${p}: ${doesExist}`);
+      }
+
+      // Find the first path that actually exists
+      const yamlPath = potentialPaths.find((p) => fs.existsSync(p));
+      logger.debug(`[E2BCode][DEBUG] Found path: ${yamlPath}`);
+
+      if (yamlPath) {
+        // Optional: check read permissions
+        // fs.accessSync(yamlPath, fs.constants.R_OK);
+
+        logger.debug(`[E2BCode] Attempting to read file at: ${yamlPath}`);
+        const file = fs.readFileSync(yamlPath, 'utf8');
+
+        logger.debug(`[E2BCode] Parsing YAML data...`);
+        loadedTemplates = YAML.parse(file);
+
+        logger.debug(`[E2BCode] Successfully loaded template data from ${yamlPath}`);
+        // Optional: log the parsed templates to verify they look correct
+        logger.debug('[E2BCode] loadedTemplates:', JSON.stringify(loadedTemplates, null, 2));
+      } else {
+        logger.debug('[E2BCode] No e2btemplates.yml or e2btemplates.yaml found; skipping template load');
+      }
+    } catch (err) {
+      logger.warn('[E2BCode] Error loading e2btemplates.yml or e2btemplates.yaml:', err);
+    }
+
+    // Store in `this.loadedTemplates` (or however you’re managing state)
+    this.loadedTemplates = loadedTemplates;
+
 
     this.name = 'E2BCode';
     this.description = `
@@ -81,6 +133,8 @@ class E2BCode extends Tool {
           'command_kill',
           'processinfo',
           'system_install',
+          // New action for listing templates from the optional YAML file
+          'list_templates',
         ])
         .describe('The action to perform.'),
       template: z
@@ -453,6 +507,13 @@ class E2BCode extends Tool {
   - **Optional Parameters:**
     - \`envs\`: Environment variables to set for this installation.
   `,
+      'list_templates': `
+  **list_templates**
+  
+  - **Description:** Lists all available sandbox templates from an optional YAML file at /app/e2btemplates.yaml.
+  
+  - **Parameters:** None
+  `
     };
 
     return helpTexts[commandName];
@@ -491,19 +552,20 @@ class E2BCode extends Tool {
       template,
     } = input;
 
-    // sessionId check for most actions
-      if (
-        action !== 'help' &&
-        action !== 'list_sandboxes' &&
-        action !== 'create' &&
-        !sessionId
-      ) {
-        return this.errorResponse(
-          sessionId || '',
-          '`sessionId` is required for most actions',
-          { action }
-        );
-      }
+    // sessionId check for most actions (exclude those that don't need a sessionId)
+    if (
+      action !== 'help' &&
+      action !== 'list_sandboxes' &&
+      action !== 'create' &&
+      action !== 'list_templates' &&  // allow listing templates without sessionId
+      !sessionId
+    ) {
+      return this.errorResponse(
+        sessionId || '',
+        '`sessionId` is required for most actions',
+        { action }
+      );
+    }
 
     let adjustedTimeoutMs = timeoutMs < 1000 ? 1000 : timeoutMs;
     let adjustedTimeout = timeout < 1 ? 1 : timeout;
@@ -546,14 +608,28 @@ class E2BCode extends Tool {
             'command_list',
             'command_kill',
             'processinfo',
+            'list_templates',
           ];
           const overview = `Available actions: ${commandList.join(', ')}. Use 'help' with a command name to get detailed help about a specific command. You are HIGHLY encouraged to run help for system_install, command_run, shell and start_server to understand the differences between them and how to use them.`;
           return JSON.stringify({ message: overview });
         }
 
+      case 'list_templates':
+        logger.debug('[E2BCode] Listing available templates from config');
+        if (!this.loadedTemplates || this.loadedTemplates.length === 0) {
+          return JSON.stringify({
+            message: 'No templates found or no config file present.',
+            templates: [],
+          });
+        }
+        return JSON.stringify({
+          message: 'Available templates loaded from from config',
+          templates: this.loadedTemplates,
+        });
+
       case 'create': {
         // If we already have a sandbox for this session, that's an error
-        if (sandboxes.has(sessionId)) {
+        if (sessionId && sandboxes.has(sessionId)) {
           return this.errorResponse(
             sessionId || '',
             `Sandbox with sessionId ${sessionId} already exists.`
