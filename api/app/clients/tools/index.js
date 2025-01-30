@@ -9,6 +9,7 @@ const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const TavilySearchResults = require('./structured/TavilySearchResults');
 const OpenWeather = require('./structured/OpenWeather');
+const Quickchart = require('./structured/Quickchart');
 
 module.exports = {
   availableTools,
@@ -21,4 +22,5 @@ module.exports = {
   StructuredWolfram,
   TavilySearchResults,
   OpenWeather,
+  Quickchart,
 };

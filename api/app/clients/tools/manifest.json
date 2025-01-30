@@ -150,5 +150,12 @@
         "description": "Sign up at <a href=\"https://home.openweathermap.org/users/sign_up\" target=\"_blank\">OpenWeather</a>, then get your key at <a href=\"https://home.openweathermap.org/api_keys\" target=\"_blank\">API keys</a>."
       }
     ]
+  },
+  {
+    "name": "Quickchart",
+    "pluginKey": "quickchart",
+    "description": "Create charts and graphs with the Quickchart API",
+    "icon": "/assets/quickchart_bar_chart_logo.svg",
+    "authConfig": []
   }
 ]
