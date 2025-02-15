@@ -10,6 +10,9 @@ const StructuredSD = require('./structured/StableDiffusion');
 const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const TavilySearchResults = require('./structured/TavilySearchResults');
+const FluxAPI = require('./structured/FluxAPI');
+const WebNavigator = require('./structured/WebNavigator');
+const E2BCode = require('./structured/E2BCode');
 
 /** @type {Record<string, TPlugin | undefined>} */
 const manifestToolMap = {};
@@ -38,4 +41,7 @@ module.exports = {
   StructuredWolfram,
   createYouTubeTools,
   TavilySearchResults,
+  FluxAPI,
+  WebNavigator,
+  E2BCode,
 };
