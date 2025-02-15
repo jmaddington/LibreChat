@@ -13,6 +13,7 @@ const TavilySearchResults = require('./structured/TavilySearchResults');
 const FluxAPI = require('./structured/FluxAPI');
 const WebNavigator = require('./structured/WebNavigator');
 const E2BCode = require('./structured/E2BCode');
+const TimeAPI = require('./structured/TimeAPI');
 
 /** @type {Record<string, TPlugin | undefined>} */
 const manifestToolMap = {};
@@ -44,4 +45,5 @@ module.exports = {
   FluxAPI,
   WebNavigator,
   E2BCode,
+  TimeAPI,
 };
