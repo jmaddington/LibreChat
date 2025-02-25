@@ -5,7 +5,7 @@ const { Sandbox } = require('@e2b/code-interpreter');
 const { logger } = require('~/config');
 const fs = require('fs');
 const YAML = require('yaml');
-
+const { createSandbox, findSandboxById, deleteSandboxById, getActiveSandboxes, setTimeoutForSandbox } = require('../../../../models/Sandbox');
 const MAX_OUTPUT_LENGTH = 10000; // 10k characters
 const MAX_TAIL_LINES = 20;
 const MAX_TAIL_BYTES = 2000; // ~2KB
@@ -530,7 +530,7 @@ class E2BCode extends Tool {
     }
 
     const {
-      sessionId,
+      sessionId: _sessionId,
       sandboxId,
       packages,
       language = 'python',
@@ -551,7 +551,7 @@ class E2BCode extends Tool {
       pid,
       template,
     } = input;
-
+    let sessionId =_sessionId;
     // sessionId check for most actions (exclude those that don't need a sessionId)
     if (
       action !== 'help' &&
@@ -709,7 +709,7 @@ class E2BCode extends Tool {
           message = `Sandbox created with sandboxId ${createdSandboxId} with timeout ${adjustedTimeout} minutes. There was an error attempting to use the template so none was used.`;
         }
         message += ` You are user ${currentUser} and current directory is ${currentDirectory}.`;
-
+        await createSandbox(createdSandboxId.split('-')[0], sessionId, sandboxCreateOptions.timeoutMs);
         return JSON.stringify({
           sessionId,
           sandboxId: createdSandboxId,
@@ -741,14 +741,28 @@ class E2BCode extends Tool {
           });
         }
 
-        const sandboxDetails = sandboxesList.map((sandbox) => {
-          const [id] = sandbox.sandboxId.split('-');
-          return {
-            sandboxId: id,
-            createdAt: sandbox.createdAt,
-            status: sandbox.status,
-          };
-        });
+        // const sandboxDetails = sandboxesList.map((sandbox) => {
+        //   const [id] = sandbox.sandboxId.split('-');
+        //   return {
+        //     sandboxId: id,
+        //     createdAt: sandbox.createdAt,
+        //     status: sandbox.status,
+        //   };
+        // });
+
+        const sandboxDetails = await Promise.all(
+          sandboxesList.map(async (sandbox) => {
+            const [id] = sandbox.sandboxId.split('-');
+            const sandboxData = await findSandboxById(id);
+
+            return {
+              sandboxId: id,
+              sessionId: sandboxData?.sessionId || undefined,
+              createdAt: sandbox.createdAt,
+              status: sandbox.status,
+            };
+          })
+        );
 
         return JSON.stringify({
           message: 'Active sandboxes found',
@@ -795,6 +809,7 @@ class E2BCode extends Tool {
 
         try {
           await sandboxToKill.kill();
+          await deleteSandboxById(validSandboxId);
         } catch (error) {
           if (sandboxes.has(sessionId)) {
             sandboxes.delete(sessionId);
@@ -837,7 +852,7 @@ class E2BCode extends Tool {
         });
         const { sandbox: sandboxSetTimeout } = sandboxes.get(sessionId);
         await sandboxSetTimeout.setTimeout(adjustedTimeout * 60 * 1000);
-
+        await setTimeoutForSandbox(sessionId, adjustedTimeout * 60 * 1000);
         return JSON.stringify({
           sessionId,
           success: true,
@@ -849,7 +864,9 @@ class E2BCode extends Tool {
       default: {
         let sandboxInfo;
         try {
-          sandboxInfo = await this.getSandboxInfo(sessionId);
+          const data = await this.getSandboxInfo(sessionId);
+          sandboxInfo = data.sandboxInfo
+          sessionId = data.sessionId
         } catch (err) {
           // getSandboxInfo logs error; we just return error JSON
           return JSON.stringify({
@@ -1325,7 +1342,30 @@ class E2BCode extends Tool {
       logger.debug('[E2BCode] Reusing existing sandbox', { sessionId });
       const sandboxInfo = sandboxes.get(sessionId);
       sandboxInfo.lastAccessed = Date.now();
-      return sandboxInfo;
+      return { sandboxInfo, sessionId };
+    } else {
+      const storedSandboxes = await getActiveSandboxes();
+      if (storedSandboxes.length) {
+        let sandboxInfo;
+        for (const sandbox of storedSandboxes) {
+          try {
+            const sandboxData = await Sandbox.connect(sandbox.sandboxId, {
+              apiKey: this.apiKey,
+            });
+            sandboxes.set(sandbox.sessionId,{
+              sandbox: sandboxData,
+              lastAccessed: Date.now(),
+              commands: new Map(),
+            })
+            sandboxInfo = sandboxData;
+          } catch (e) {
+            logger.warn(`No sandbox found with sandboxId ${sandbox.sandboxId}.`)
+          }
+        }
+        if (sandboxInfo) {
+          return { sandboxInfo, sessionId };
+        }
+      }
     }
     logger.error('[E2BCode] No sandbox found for session', { sessionId });
     throw new Error(
