@@ -14,8 +14,8 @@ async function findSandboxById(sandboxId) {
   return await Sandbox.findOne({ sandboxId });
 }
 
-async function deleteSandboxById(sandboxId) {
-  return await Sandbox.deleteOne({ sandboxId });
+async function deleteSandboxBySessionId(sessionId) {
+  return await Sandbox.deleteOne({ sessionId });
 }
 
 async function getActiveSandboxes() {
@@ -25,7 +25,7 @@ async function getActiveSandboxes() {
 module.exports = {
   createSandbox,
   findSandboxById,
-  deleteSandboxById,
+  deleteSandboxBySessionId,
   getActiveSandboxes,
   setTimeoutForSandbox,
 };
