@@ -18,7 +18,7 @@ class E2BCode extends Tool {
     super();
     const envVar = 'E2B_API_KEY';
     const override = fields.override ?? false;
-
+    this.userId = fields.userId;
     // Attempt to get or validate the API key
     const maybeKey = this.getApiKey(envVar, override);
 
@@ -699,7 +699,7 @@ class E2BCode extends Tool {
           message = `Sandbox created with sandboxId ${createdSandboxId} with timeout ${adjustedTimeout} minutes. There was an error attempting to use the template so none was used.`;
         }
         message += ` You are user ${currentUser} and current directory is ${currentDirectory}.`;
-        await createSandbox(createdSandboxId, sessionId, sandboxCreateOptions.timeoutMs);
+        await createSandbox(createdSandboxId, sessionId, this.userId, sandboxCreateOptions.timeoutMs);
         return JSON.stringify({
           sessionId,
           sandboxId: createdSandboxId,
@@ -733,14 +733,16 @@ class E2BCode extends Tool {
           sandboxesList.map(async (sandbox) => {
             const [id] = sandbox.sandboxId.split('-');
             const sandboxData = await findSandboxById(sandbox.sandboxId);
-
-            return {
-              sandboxId: id,
-              sessionId: sandboxData?.sessionId || undefined,
-              createdAt: sandbox.createdAt || sandboxData.createdAt || undefined,
-              expiredAt: sandboxData.expiredAt || undefined,
-              status: sandbox.status,
-            };
+            if (sandboxData && sandboxData.userId === this.userId) {
+              return {
+                sandboxId: id,
+                sessionId: sandboxData?.sessionId || undefined,
+                userId: sandboxData?.userId || undefined,
+                createdAt: sandbox.createdAt || sandboxData.createdAt || undefined,
+                expiredAt: sandboxData.expiredAt || undefined,
+                status: sandbox.status,
+              };
+            }
           }),
         );
 
@@ -1304,7 +1306,7 @@ class E2BCode extends Tool {
    * The caller of this method immediately returns the error JSON.
    */
   async getSandboxInfo(sessionId) {
-    const storedSandboxes = await getActiveSandboxes();
+    const storedSandboxes = await getActiveSandboxes(this.userId);
     if (storedSandboxes.length) {
       let sandboxInfo;
       for (const sandbox of storedSandboxes) {

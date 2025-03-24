@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const sandboxSchema = new mongoose.Schema({
   sandboxId: { type: String, required: true, unique: true },
   sessionId: { type: String, required: true },
+  userId: { type: String, required: true },
   expiredAt: { type: Date, required: true }, // Дата закінчення дії
 }, { timestamps: true });
 

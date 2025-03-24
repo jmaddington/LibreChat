@@ -1,8 +1,8 @@
 const Sandbox = require('./schema/sandboxSchema');
 
-async function createSandbox(sandboxId, sessionId, timeoutInMilliSeconds) {
+async function createSandbox(sandboxId, sessionId, userId, timeoutInMilliSeconds) {
   const expiredAt = new Date(Date.now() + timeoutInMilliSeconds);
-  return await Sandbox.create({ sandboxId, sessionId, expiredAt });
+  return await Sandbox.create({ sandboxId, sessionId, userId, expiredAt });
 }
 
 async function setTimeoutForSandbox(sessionId, timeoutInMilliSeconds) {
@@ -18,8 +18,8 @@ async function deleteSandboxBySessionId(sessionId) {
   return await Sandbox.deleteOne({ sessionId });
 }
 
-async function getActiveSandboxes() {
-  return await Sandbox.find({});
+async function getActiveSandboxes(userId) {
+  return await Sandbox.find({userId});
 }
 
 module.exports = {
