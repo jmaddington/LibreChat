@@ -18,6 +18,10 @@ const {
   StructuredWolfram,
   createYouTubeTools,
   TavilySearchResults,
+  FluxAPI,
+  WebNavigator,
+  E2BCode,
+  TimeAPI,
 } = require('../');
 const { primeFiles: primeCodeFiles } = require('~/server/services/Files/Code/process');
 const { createFileSearchTool, primeFiles: primeSearchFiles } = require('./fileSearch');
@@ -154,6 +158,10 @@ const loadTools = async ({
     'azure-ai-search': StructuredACS,
     traversaal_search: TraversaalSearch,
     tavily_search_results_json: TavilySearchResults,
+    flux: FluxAPI,
+    WebNavigator: WebNavigator,
+    E2BCode: E2BCode,
+    time_api: TimeAPI,
   };
 
   const customConstructors = {
@@ -199,6 +207,17 @@ const loadTools = async ({
     'stable-diffusion': imageGenOptions,
     serpapi: { location: 'Austin,Texas,United States', hl: 'en', gl: 'us' },
   };
+
+  const toolAuthFields = {};
+  toolAuthFields['flux'] = ['FLUX_API_KEY'];
+
+  availableTools.forEach((tool) => {
+    if (customConstructors[tool.pluginKey]) {
+      return;
+    }
+
+    toolAuthFields[tool.pluginKey] = tool.authConfig.map((auth) => auth.authField);
+  });
 
   const toolContextMap = {};
   const remainingTools = [];

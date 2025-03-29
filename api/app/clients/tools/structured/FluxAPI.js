@@ -536,10 +536,13 @@ class FluxAPI extends Tool {
       logger.debug('[FluxAPI] Finetuned image saved to path:', result.filepath);
 
       // Calculate cost based on endpoint
+      /**
+       * TODO: Cost handling
       const endpointKey = endpoint.includes('ultra')
         ? 'FLUX_PRO_1_1_ULTRA_FINETUNED'
         : 'FLUX_PRO_FINETUNED';
       const cost = FluxAPI.PRICING[endpointKey] || 0;
+       */
       // Return the result based on returnMetadata flag
       this.result = this.returnMetadata ? result : this.wrapInMarkdown(result.filepath);
       return this.returnValue(this.result);
