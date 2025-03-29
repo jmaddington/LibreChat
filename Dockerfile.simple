@@ -1,0 +1,33 @@
+# Simple Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apk --no-cache add curl g++ make python3
+
+# Copy package files
+COPY package*.json ./
+COPY packages/data-provider/package*.json ./packages/data-provider/
+COPY packages/mcp/package*.json ./packages/mcp/
+COPY client/package*.json ./client/
+COPY api/package*.json ./api/
+
+# Install node dependencies using plain install instead of ci
+RUN npm install
+
+# Copy source files
+COPY . .
+
+# Build packages and client
+RUN npm run build:data-provider && \
+    npm run build:mcp && \
+    npm run frontend
+
+# Expose port and set host
+WORKDIR /app/api
+EXPOSE 3080
+ENV HOST=0.0.0.0
+
+# Start the application
+CMD ["node", "server/index.js"]
