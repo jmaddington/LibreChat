@@ -23,9 +23,16 @@ RUN \
     npm install --no-audit; \
     # Explicitly install rollup for Alpine Linux
     npm install @rollup/rollup-linux-x64-musl; \
-    # React client build
-    NODE_OPTIONS="--max-old-space-size=2048" npm run frontend; \
-    npm prune --production; \
+    # Build the packages separately first
+    npm run build:data-provider && \
+    npm run build:mcp && \
+    npm run build:data-schemas && \
+    # Then build the client
+    cd client && NODE_OPTIONS="--max-old-space-size=2048" npm run build && cd .. && \
+    # Verify client dist directory is properly created
+    ls -la /app/client/dist && \
+    # Cleanup
+    npm prune --production && \
     npm cache clean --force
 
 RUN mkdir -p /app/client/public/images /app/api/logs
