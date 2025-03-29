@@ -144,6 +144,7 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/protocol-http": "^3.374.0",
     "@e2b/code-interpreter": "^1.0.4",
     "cheerio": "^1.0.0",
     "e2b": "^1.0.5"
