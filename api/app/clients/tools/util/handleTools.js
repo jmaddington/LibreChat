@@ -18,7 +18,6 @@ const {
   StructuredWolfram,
   createYouTubeTools,
   TavilySearchResults,
-  FluxAPI,
   WebNavigator,
   E2BCode,
   TimeAPI,
