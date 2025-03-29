@@ -29,9 +29,13 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Dockerfile.simple
+          file: Dockerfile
           push: true
           tags: ghcr.io/jmaddington/librechat:latest
+          build-args: |
+            BUILDX_PLATFORMS=linux/amd64
+          cache-to: type=gha,scope=librechat-build
+          cache-from: type=gha,scope=librechat-build
 
       - name: Log out from Docker Hub
         run: docker logout ghcr.io

@@ -3,7 +3,7 @@
 # Base node image
 FROM node:20-alpine AS node
 
-RUN apk --no-cache add curl
+RUN apk --no-cache add curl g++ make python3
 
 RUN mkdir -p /app && chown node:node /app
 WORKDIR /app
@@ -21,6 +21,8 @@ RUN \
     npm config set fetch-retries 5 ; \
     npm config set fetch-retry-mintimeout 15000 ; \
     npm install --no-audit; \
+    # Explicitly install rollup for Alpine Linux
+    npm install @rollup/rollup-linux-x64-musl; \
     # React client build
     NODE_OPTIONS="--max-old-space-size=2048" npm run frontend; \
     npm prune --production; \
