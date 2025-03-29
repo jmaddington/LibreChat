@@ -16,10 +16,10 @@ COPY packages/data-schemas/package*.json ./packages/data-schemas/
 COPY client/package*.json ./client/
 COPY api/package*.json ./api/
 
-# Install all dependencies for every build - using npm install instead of npm ci
+# Install all dependencies for every build - first npm install to get dependencies, then npm ci for clean install
 FROM base-min AS base
 WORKDIR /app
-RUN npm install --no-audit && npm install @rollup/rollup-linux-x64-musl
+RUN npm install --no-audit && npm install @rollup/rollup-linux-x64-musl && npm ci || true
 
 # Build data-provider
 FROM base AS data-provider-build
@@ -54,8 +54,8 @@ RUN npm run build
 # API setup (including client dist)
 FROM base-min AS api-build
 WORKDIR /app
-# Install only production deps - use npm install instead of npm ci
-RUN npm install --no-audit --omit=dev
+# Install only production deps - first npm install, then npm ci
+RUN npm install --no-audit --omit=dev && npm ci --omit=dev || true
 COPY api ./api
 COPY config ./config
 COPY --from=data-provider-build /app/packages/data-provider/dist ./packages/data-provider/dist

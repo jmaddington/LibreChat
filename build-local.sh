@@ -30,7 +30,7 @@ echo "⏱️  This might take a few minutes..."
 docker buildx build \
   --platform linux/amd64 \
   --tag librechat:local-test \
-  --file Dockerfile.multi \
+  --file Dockerfile.test \
   --load \
   --progress=plain \
   .

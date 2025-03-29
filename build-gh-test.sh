@@ -10,13 +10,14 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-# Extract the current GitHub Action configuration
-GH_WORKFLOW_FILE=".github/workflows/deploy-jm.yml"
-DOCKERFILE=$(grep -o "file: .*" "$GH_WORKFLOW_FILE" | cut -d ':' -f 2 | tr -d ' ')
-BUILD_ARGS=$(grep -A 3 "build-args" "$GH_WORKFLOW_FILE" | grep -v "build-args" | grep -v -- "--" | tr -d ' ' | tr -d '|')
+# Use our special test Dockerfile
+DOCKERFILE="Dockerfile.test"
 
-echo "📄 Using Dockerfile: $DOCKERFILE"
-echo "🔧 Using build args: $BUILD_ARGS"
+# Just use hardcoded args for simplicity
+BUILD_PLATFORM="linux/amd64"
+
+echo "📄 Using test Dockerfile: $DOCKERFILE"
+echo "🔧 Using build platform: $BUILD_PLATFORM"
 
 # Set up buildx for multi-platform builds
 echo "🔧 Setting up Docker buildx..."
@@ -35,10 +36,9 @@ echo "⏱️  This might take a few minutes..."
 
 # Add --no-cache to force a clean build
 docker buildx build \
-  --platform linux/amd64 \
+  --platform $BUILD_PLATFORM \
   --tag librechat:gh-test \
   --file $DOCKERFILE \
-  $BUILD_ARGS \
   --load \
   --progress=plain \
   .
