@@ -4,8 +4,7 @@
 # Base for all builds
 FROM node:20-alpine AS base-min
 WORKDIR /app
-# Same dependencies as working repo
-RUN apk --no-cache add curl g++ make python3
+RUN apk --no-cache add curl
 RUN npm config set fetch-retry-maxtimeout 600000 && \
     npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 15000
@@ -19,7 +18,6 @@ COPY api/package*.json ./api/
 # Install all dependencies for every build
 FROM base-min AS base
 WORKDIR /app
-# Use npm ci exactly as in working repo
 RUN npm ci
 
 # Build data-provider
@@ -49,13 +47,11 @@ COPY client ./
 COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN npm run build
-# Verify client build succeeded and index.html exists
-RUN ls -la /app/client/dist
 
 # API setup (including client dist)
 FROM base-min AS api-build
 WORKDIR /app
-# Install only production deps - use npm ci exactly as in working repo
+# Install only production deps
 RUN npm ci --omit=dev
 COPY api ./api
 COPY config ./config
