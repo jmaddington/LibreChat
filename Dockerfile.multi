@@ -24,6 +24,8 @@ RUN npm ci
 FROM base AS data-provider-build
 WORKDIR /app/packages/data-provider
 COPY packages/data-provider ./
+# Add dependencies needed for rollup with musl
+RUN apk --no-cache add g++ make python3
 RUN npm run build
 
 # Build mcp package
