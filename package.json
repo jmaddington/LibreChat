@@ -144,10 +144,7 @@
     ]
   },
   "dependencies": {
-    "@aws-sdk/protocol-http": "^3.374.0",
-    "@e2b/code-interpreter": "^1.0.4",
-    "@rollup/rollup-linux-x64-musl": "^4.9.6",
-    "cheerio": "^1.0.0",
-    "e2b": "^1.0.5"
+    "better-sqlite3": "^11.9.1",
+    "sqlite3": "^5.1.7"
   }
 }
