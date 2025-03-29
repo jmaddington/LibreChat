@@ -12,11 +12,15 @@ RUN npm config set fetch-retry-maxtimeout 600000 && \
 COPY package*.json ./
 COPY packages/data-provider/package*.json ./packages/data-provider/
 COPY packages/mcp/package*.json ./packages/mcp/
+COPY packages/data-schemas/package*.json ./packages/data-schemas/
+COPY client/package*.json ./client/
+COPY api/package*.json ./api/
 
 # Install all dependencies for every build
 FROM base-min AS base
 WORKDIR /app
-RUN npm ci
+# Install Rollup for Alpine Linux first to avoid issues
+RUN npm install --no-audit && npm install @rollup/rollup-linux-x64-musl
 
 # Build data-provider
 FROM base AS data-provider-build
@@ -31,6 +35,13 @@ COPY packages/mcp ./
 COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
 RUN npm run build
 
+# Build data-schemas
+FROM base AS data-schemas-build
+WORKDIR /app/packages/data-schemas
+COPY packages/data-schemas ./
+COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
+RUN npm run build
+
 # Client build
 FROM base AS client-build
 WORKDIR /app/client
@@ -38,6 +49,8 @@ COPY client ./
 COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
 ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN npm run build
+# Verify client build succeeded and index.html exists
+RUN ls -la /app/client/dist
 
 # API setup (including client dist)
 FROM base-min AS api-build
@@ -48,7 +61,10 @@ COPY api ./api
 COPY config ./config
 COPY --from=data-provider-build /app/packages/data-provider/dist ./packages/data-provider/dist
 COPY --from=mcp-build /app/packages/mcp/dist ./packages/mcp/dist
+COPY --from=data-schemas-build /app/packages/data-schemas/dist ./packages/data-schemas/dist
 COPY --from=client-build /app/client/dist ./client/dist
+# Debug: Verify client dist was copied correctly
+RUN ls -la /app/client/dist
 WORKDIR /app/api
 EXPOSE 3080
 ENV HOST=0.0.0.0

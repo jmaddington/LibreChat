@@ -29,7 +29,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: Dockerfile
+          file: Dockerfile.multi
           push: true
           tags: ghcr.io/jmaddington/librechat:latest
           build-args: |
