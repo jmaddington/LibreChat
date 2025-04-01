@@ -161,20 +161,6 @@
     "authConfig": []
   },
   {
-    "name": "Flux",
-    "pluginKey": "flux",
-    "description": "Generate images using text with the Flux API.",
-    "icon": "/assets/flux.png",
-    "isAuthRequired": "true",
-    "authConfig": [
-      {
-        "authField": "FLUX_API_KEY",
-        "label": "Your Flux API Key",
-        "description": "Provide your Flux API key from your user profile."
-      }
-    ]
-  },
-  {
     "name": "E2BCode",
     "pluginKey": "E2BCode",
     "description": "Run code in an E2B sandbox",
@@ -207,5 +193,19 @@
     "description": "Get the current time in any location, perform time calculations and more.",
     "icon": "/assets/timeapi.svg",
     "authConfig": []
+  },
+  {
+    "name": "Flux",
+    "pluginKey": "flux",
+    "description": "Generate images using text with the Flux API.",
+    "icon": "https://blackforestlabs.ai/wp-content/uploads/2024/07/bfl_logo_retraced_blk.png",
+    "isAuthRequired": "true",
+    "authConfig": [
+      {
+        "authField": "FLUX_API_KEY",
+        "label": "Your Flux API Key",
+        "description": "Provide your Flux API key from your user profile."
+      }
+    ]
   }
 ]

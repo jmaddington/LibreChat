@@ -15,13 +15,16 @@ import translationPt_BR from './pt-BR/translation.json';
 import translationPt_PT from './pt-PT/translation.json';
 import translationRu from './ru/translation.json';
 import translationJa from './ja/translation.json';
+import translationKa from './ka/translation.json';
 import translationSv from './sv/translation.json';
 import translationKo from './ko/translation.json';
-import translationVi from './vi/translation.json';
+import translationTh from './th/translation.json';
 import translationTr from './tr/translation.json';
+import translationVi from './vi/translation.json';
 import translationNl from './nl/translation.json';
 import translationId from './id/translation.json';
 import translationHe from './he/translation.json';
+import translationHu from './hu/translation.json';
 import translationFi from './fi/translation.json';
 import translationZh_Hans from './zh-Hans/translation.json';
 import translationZh_Hant from './zh-Hant/translation.json';
@@ -43,13 +46,16 @@ export const resources = {
   'pt-PT': { translation: translationPt_PT },
   ru: { translation: translationRu },
   ja: { translation: translationJa },
+  ka: { translation: translationKa },
   sv: { translation: translationSv },
   ko: { translation: translationKo },
-  vi: { translation: translationVi },
+  th: { translation: translationTh },
   tr: { translation: translationTr },
+  vi: { translation: translationVi },
   nl: { translation: translationNl },
   id: { translation: translationId },
   he: { translation: translationHe },
+  hu: { translation: translationHu },
   fi: { translation: translationFi },
 } as const;
 
@@ -58,9 +64,9 @@ i18n
   .use(initReactI18next)
   .init({
     fallbackLng: {
-      'zh-TW': ['zh-Hant'],
-      'zh-HK': ['zh-Hant'],
-      'zh': ['zh-Hans'],
+      'zh-TW': ['zh-Hant', 'en'],
+      'zh-HK': ['zh-Hant', 'en'],
+      zh: ['zh-Hans', 'en'],
       default: ['en'],
     },
     fallbackNS: 'translation',
