@@ -43,7 +43,6 @@ module.exports = {
   StructuredWolfram,
   createYouTubeTools,
   TavilySearchResults,
-  FluxAPI,
   WebNavigator,
   E2BCode,
   TimeAPI,
