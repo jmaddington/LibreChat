@@ -29,7 +29,6 @@
     "create-user": "node config/create-user.js",
     "invite-user": "node config/invite-user.js",
     "list-users": "node config/list-users.js",
-    "list-users-with-role": "node config/list-users-with-role.js",
     "reset-password": "node config/reset-password.js",
     "ban-user": "node config/ban-user.js",
     "delete-user": "node config/delete-user.js",
