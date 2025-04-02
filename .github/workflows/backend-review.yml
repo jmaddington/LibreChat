@@ -6,6 +6,8 @@ on:
       - dev
       - jm-production
       - release/*
+      - 'tracking/**'
+      - 'feature/**'
     paths:
       - 'api/**'
   workflow_dispatch:
