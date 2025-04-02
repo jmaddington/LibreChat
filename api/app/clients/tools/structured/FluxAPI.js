@@ -1,13 +1,13 @@
 const { z } = require('zod');
-const fs = require('fs');
 const axios = require('axios');
 const fetch = require('node-fetch');
 const { v4: uuidv4 } = require('uuid');
 const { Tool } = require('@langchain/core/tools');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { FileContext, ContentTypes } = require('librechat-data-provider');
-const yaml = require('js-yaml');
 const { logger } = require('~/config');
+const fs = require('fs');
+const yaml = require('js-yaml');
 
 const displayMessage =
   'Flux displayed an image. All generated images are already plainly visible, so don\'t repeat the descriptions in detail. Do not list download links as they are available in the UI already. The user may download the images by clicking on them, but do not mention anything about downloading to the user.';
@@ -38,7 +38,6 @@ class FluxAPI extends Tool {
 
     /** @type {boolean} **/
     this.isAgent = fields.isAgent;
-    this.returnMetadata = fields.returnMetadata ?? false;
 
     if (fields.processFileURL) {
       /** @type {processFileURL} Necessary for output to contain all image metadata. */
@@ -49,7 +48,7 @@ class FluxAPI extends Tool {
 
     this.name = 'flux';
     this.description =
-      "Use Flux to generate images from text descriptions. This tool is exclusively for visual content.";
+      'Use Flux to generate images from text descriptions. This tool is exclusively for visual content.';
 
     // Try to load description from yaml file
     let yamlDescription;
@@ -57,24 +56,23 @@ class FluxAPI extends Tool {
 
     for (const path of yamlPaths) {
       try {
-      if (fs.existsSync(path)) {
-        logger.debug(`[FluxAPI] Loading FluxAPI config from ${path}`);
-        const fileContents = fs.readFileSync(path, 'utf8');
-        const data = yaml.load(fileContents);
-        if (data && data.description_for_model) {
-        yamlDescription = data.description_for_model;
-        break;
+        if (fs.existsSync(path)) {
+          logger.debug(`[FluxAPI] Loading FluxAPI config from ${path}`);
+          const fileContents = fs.readFileSync(path, 'utf8');
+          const data = yaml.load(fileContents);
+          if (data && data.description_for_model) {
+            yamlDescription = data.description_for_model;
+            break;
+          }
         }
-      }
       } catch (err) {
-      logger.debug(`[FluxAPI] Failed to load FluxAPI config from ${path}: ${err.message}`);
+        logger.debug(`[FluxAPI] Failed to load FluxAPI config from ${path}: ${err.message}`);
       }
     }
 
     if (!yamlDescription) {
       this.description_for_model = `
       // Use Flux to generate images from detailed text descriptions. Follow these guidelines:
-      'Use Flux to generate images from text descriptions. This tool can generate images and list available finetunes. Each generate call creates one image. For multiple images, make multiple consecutive calls.';
 
       1. Craft prompts in natural language, as if explaining to a human artist.
       2. Be precise, detailed, and direct in your descriptions.
@@ -111,10 +109,10 @@ class FluxAPI extends Tool {
     } else {
       this.description_for_model = yamlDescription;
     }
-
-    logger.debug('[FluxAPI] Description:', this.description_for_model);
     // Add base URL from environment variable with fallback
     this.baseUrl = process.env.FLUX_API_BASE_URL || 'https://api.us1.bfl.ai';
+
+    logger.debug('[FluxAPI] Description:', this.description_for_model);
 
     // Define the schema for structured input
     this.schema = z.object({
@@ -171,14 +169,7 @@ class FluxAPI extends Tool {
         ])
         .optional()
         .default('/v1/flux-pro-1.1')
-        .describe('Endpoint to use for image generation. Default is /v1/flux-pro.'),
-      number_of_images: z
-        .number()
-        .int()
-        .min(1)
-        .max(24)
-        .optional()
-        .describe('Number of images to generate, up to a maximum of 24. Default is 1.'),
+        .describe('Endpoint to use for image generation.'),
       raw: z
         .boolean()
         .optional()
@@ -198,6 +189,13 @@ class FluxAPI extends Tool {
         .optional()
         .default('16:9')
         .describe('Aspect ratio for ultra models (e.g., "16:9")'),
+      number_of_images: z
+        .number()
+        .int()
+        .min(1)
+        .max(24)
+        .optional()
+        .describe('Number of images to generate, up to a maximum of 24. Default is 1.'),
     });
   }
 
@@ -234,12 +232,11 @@ class FluxAPI extends Tool {
     if (this.isAgent === true && typeof value === 'string') {
       return [value, {}];
     } else if (this.isAgent === true && typeof value === 'object') {
-      if (Array.isArray(value)) {
-        return value;
-      }
-      return [displayMessage, value];
+      return [
+        displayMessage,
+        value,
+      ];
     }
-    return value;
   }
 
   async _call(data) {
@@ -247,20 +244,6 @@ class FluxAPI extends Tool {
 
     // Use provided API key for this request if available, otherwise use default
     const requestApiKey = this.apiKey || this.getApiKey();
-    // const baseUrl = 'https://api.bfl.ml';
-    // const {
-    //   prompt,
-    //   width = 1024,
-    //   height = 768,
-    //   steps = 40,
-    //   prompt_upsampling = false,
-    //   seed = null,
-    //   safety_tolerance = 6,
-    //   output_format = 'png',
-    //   endpoint = '/v1/flux-pro',
-    //   number_of_images = 1,
-    //   raw = false,
-    // } = data;
 
     // Handle list_finetunes action
     if (action === 'list_finetunes') {
@@ -282,43 +265,28 @@ class FluxAPI extends Tool {
       prompt_upsampling: imageData.prompt_upsampling || false,
       safety_tolerance: imageData.safety_tolerance || 6,
       output_format: imageData.output_format || 'png',
+      width: imageData.width || 1024,
+      height: imageData.height || 768,
+      steps: imageData.steps || 40,
+      seed: imageData.seed || null,
+      number_of_images: imageData.number_of_images || 1,
+      raw: imageData.raw || false,
     };
-
-    // Add optional parameters if provided
-    if (imageData.width) {
-      payload.width = imageData.width;
-    }
-    if (imageData.height) {
-      payload.height = imageData.height;
-    }
-    if (imageData.steps) {
-      payload.steps = imageData.steps;
-    }
-    if (imageData.seed !== undefined) {
-      payload.seed = imageData.seed;
-    }
-    if (imageData.raw) {
-      payload.raw = imageData.raw;
-    }
 
     const generateUrl = `${this.baseUrl}${imageData.endpoint || '/v1/flux-pro'}`;
     const resultUrl = `${this.baseUrl}/v1/get_result`;
+
     logger.debug('[FluxAPI] Generating image with prompt:', prompt);
     logger.debug('[FluxAPI] Using endpoint:', generateUrl);
-    logger.debug('[FluxAPI] Steps:', steps);
-    logger.debug('[FluxAPI] Number of images:', number_of_images);
-    logger.debug('[FluxAPI] Safety Tolerance:', safety_tolerance);
-    logger.debug('[FluxAPI] Dimensions:', width, 'x', height);
+    logger.debug('[FluxAPI] Steps:', payload.steps);
+    logger.debug('[FluxAPI] Number of images:', c);
+    logger.debug('[FluxAPI] Safety Tolerance:', payload.safety_tolerance);
+    logger.debug('[FluxAPI] Dimensions:', payload.width, 'x', payload.height);
 
-    const headers = {
-      'x-key': requestApiKey,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    };
-
-    const totalImages = Math.min(Math.max(number_of_images, 1), 24);
+    const totalImages = Math.min(Math.max(payload.number_of_images, 1), 24);
 
     let imagesMarkdown = '';
+    let imagesMetadata = [];
 
     for (let i = 0; i < totalImages; i++) {
       let taskResponse;
@@ -334,13 +302,14 @@ class FluxAPI extends Tool {
       } catch (error) {
         const details = this.getDetails(error?.response?.data || error.message);
         logger.error('[FluxAPI] Error while submitting task:', details);
+
         return this.returnValue(
           `Something went wrong when trying to generate the image. The Flux API may be unavailable:
-          Error Message: ${details}`,
+        Error Message: ${details}`,
         );
       }
 
-    const taskId = taskResponse.data.id;
+      const taskId = taskResponse.data.id;
 
       // Polling for the result
       let status = 'Pending';
@@ -350,10 +319,10 @@ class FluxAPI extends Tool {
           // Wait 2 seconds between polls
           await new Promise((resolve) => setTimeout(resolve, 2000));
           const resultResponse = await axios.get(resultUrl, {
-              headers: {
-                'x-key': requestApiKey,
-                Accept: 'application/json',
-              },
+            headers: {
+              'x-key': requestApiKey,
+              Accept: 'application/json',
+            },
             params: { id: taskId },
             ...this.getAxiosConfig(),
           });
@@ -384,77 +353,85 @@ class FluxAPI extends Tool {
         return this.returnValue('No image data received from Flux API.');
       }
 
-    // Try saving the image locally
-    const imageUrl = resultData.sample;
-    const imageName = `img-${uuidv4()}.png`;
+      // Try saving the image locally
+      const imageUrl = resultData.sample;
+      const imageName = `img-${uuidv4()}.png`;
 
-    if (this.isAgent) {
-      try {
-        // Fetch the image and convert to base64
-        const fetchOptions = {};
-        if (process.env.PROXY) {
-          fetchOptions.agent = new HttpsProxyAgent(process.env.PROXY);
-        }
-        const imageResponse = await fetch(imageUrl, fetchOptions);
-        const arrayBuffer = await imageResponse.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
-        const content = [
-          {
-            type: ContentTypes.IMAGE_URL,
-            image_url: {
-              url: `data:image/png;base64,${base64}`,
+      if (this.isAgent) {
+        try {
+          // Fetch the image and convert to base64
+          const fetchOptions = {};
+          if (process.env.PROXY) {
+            fetchOptions.agent = new HttpsProxyAgent(process.env.PROXY);
+          }
+          const imageResponse = await fetch(imageUrl, fetchOptions);
+          const arrayBuffer = await imageResponse.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const content = [
+            {
+              type: ContentTypes.IMAGE_URL,
+              image_url: {
+                url: `data:image/png;base64,${base64}`,
+              },
             },
-          },
-        ];
+          ];
 
-        const response = [
-          {
-            type: ContentTypes.TEXT,
-            text: displayMessage,
-          },
-        ];
-        return [response, { content }];
+          const response = [
+            {
+              type: ContentTypes.TEXT,
+              text: displayMessage,
+            },
+          ];
+          return [response, { content }];
+        } catch (error) {
+          logger.error('Error processing image for agent:', error);
+          return this.returnValue(`Failed to process the image. ${error.message}`);
+        }
+      }
+
+      try {
+        logger.debug('[FluxAPI] Saving image:', imageUrl);
+        const result = await this.processFileURL({
+          fileStrategy: this.fileStrategy,
+          userId: this.userId,
+          URL: imageUrl,
+          fileName: imageName,
+          basePath: 'images',
+          context: FileContext.image_generation,
+        });
+
+        logger.debug('[FluxAPI] Image saved to path:', result.filepath);
+
+        // Calculate cost based on endpoint
+        /**
+         * TODO: Cost handling
+         const endpoint = imageData.endpoint || '/v1/flux-pro';
+         const endpointKey = Object.entries(FluxAPI.PRICING).find(([key, _]) =>
+         endpoint.includes(key.toLowerCase().replace(/_/g, '-')),
+         )?.[0];
+         const cost = FluxAPI.PRICING[endpointKey] || 0;
+         */
+        // this.result = this.returnMetadata ? result : this.wrapInMarkdown(result.filepath);
+        // return this.returnValue(this.result);
+        // Always append the image markdown link
+        if (this.returnMetadata) {
+          imagesMetadata.push(result);
+        }
+        imagesMarkdown += `${this.wrapInMarkdown(result.filepath)}\n`;
       } catch (error) {
-        logger.error('Error processing image for agent:', error);
-        return this.returnValue(`Failed to process the image. ${error.message}`);
+        const details = this.getDetails(error?.message ?? 'No additional error details.');
+        logger.error('Error while saving the image:', details);
+        return this.returnValue(`Failed to save the image locally. ${details}`);
       }
     }
 
-    try {
-      logger.debug('[FluxAPI] Saving image:', imageUrl);
-      const result = await this.processFileURL({
-        fileStrategy: this.fileStrategy,
-        userId: this.userId,
-        URL: imageUrl,
-        fileName: imageName,
-        basePath: 'images',
-        context: FileContext.image_generation,
-      });
-
-      logger.debug('[FluxAPI] Image saved to path:', result.filepath);
-
-        // Always append the image markdown link
-        imagesMarkdown += `${this.wrapInMarkdown(result.filepath)}\n`;
-      } catch (error) {
-        const details = error?.message ?? 'No additional error details.';
-        logger.error('Error while saving the image:', details);
-        return this.returnValue(`Failed to save the image locally. ${details}`);
-      // Calculate cost based on endpoint
-      /**
-       * TODO: Cost handling
-      const endpoint = imageData.endpoint || '/v1/flux-pro';
-      const endpointKey = Object.entries(FluxAPI.PRICING).find(([key, _]) =>
-        endpoint.includes(key.toLowerCase().replace(/_/g, '-')),
-      )?.[0];
-      const cost = FluxAPI.PRICING[endpointKey] || 0;
-       */
-      this.result = this.returnMetadata ? result : this.wrapInMarkdown(result.filepath);
-      return this.returnValue(this.result);
-    } catch (error) {
-      const details = this.getDetails(error?.message ?? 'No additional error details.');
-      logger.error('Error while saving the image:', details);
-      return this.returnValue(`Failed to save the image locally. ${details}`);
+    this.result = {
+      'Markdown Embeds for User': imagesMarkdown.trim().split('\n'),
+    };
+    if (this.returnMetadata) {
+      this.result['returnMetadata'] = imagesMetadata;
     }
+    return this.returnValue(this.result);
   }
 
   async getMyFinetunes(apiKey = null) {
@@ -501,7 +478,6 @@ class FluxAPI extends Tool {
         const formattedDetails = JSON.stringify(finetuneDetails, null, 2);
         return [`Here are the available finetunes:\n${formattedDetails}`, null];
       }
-        } // End of for-loop
       return JSON.stringify(finetuneDetails);
     } catch (error) {
       const details = this.getDetails(error?.response?.data || error.message);
@@ -653,10 +629,6 @@ class FluxAPI extends Tool {
       logger.error('Error while saving the finetuned image:', details);
       return this.returnValue(`Failed to save the finetuned image locally. ${details}`);
     }
-        this.result = {
-      'Markdown Embeds for User': imagesMarkdown.trim().split('\n')
-        };
-        return this.returnValue(this.result);
   }
 }
 
