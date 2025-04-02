@@ -111,5 +111,3 @@ uploads/
 # owner
 release/
 !/client/src/@types/i18next.d.ts
-
-e2btemplates.yml

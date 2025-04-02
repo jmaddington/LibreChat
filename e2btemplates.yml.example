@@ -1,5 +1,0 @@
-- name: python-latest
-  description: A sandbox environment with the latest Python installed
-
-- name: node-lts
-  description: A sandbox environment running the LTS version of Node.js
