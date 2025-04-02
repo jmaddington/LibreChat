@@ -647,7 +647,6 @@ class AgentClient extends BaseClient {
         signal: abortController.signal,
         streamMode: 'values',
         version: 'v2',
-        recursionLimit: 100,
       };
 
       const toolSet = new Set((this.options.agent.tools ?? []).map((tool) => tool && tool.name));

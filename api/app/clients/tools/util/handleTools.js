@@ -10,6 +10,7 @@ const {
   GoogleSearchAPI,
   // Structured Tools
   DALLE3,
+  FluxAPI,
   OpenWeather,
   StructuredSD,
   StructuredACS,
@@ -148,6 +149,7 @@ const loadTools = async ({
   returnMap = false,
 }) => {
   const toolConstructors = {
+    flux: FluxAPI,
     calculator: Calculator,
     google: GoogleSearchAPI,
     open_weather: OpenWeather,
