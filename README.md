@@ -2,6 +2,13 @@
 
 This fork is a personal project to add a few features to LibreChat and integrate features from other forks.
 
+[![ESLint Code Quality Checks](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml)
+[![Backend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml)
+[![Frontend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml)
+[![Accessibility Tests](https://github.com/jmaddington/LibreChat/actions/workflows/a11y.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/a11y.yml)
+[![Docker Build and Push to GHCR](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm.yml)
+[![Docker Build Only](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm-build-only.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm-build-only.yml)
+
 ## Branches
 `jm-production` - The main branch for this fork for production use. Stable-ish, but has been at least minimally tested.
 `main` - A clone of the upstream main branch.
