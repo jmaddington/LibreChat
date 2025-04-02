@@ -2,15 +2,15 @@ const availableTools = require('./manifest.json');
 
 // Structured Tools
 const DALLE3 = require('./structured/DALLE3');
+const FluxAPI = require('./structured/FluxAPI');
 const OpenWeather = require('./structured/OpenWeather');
-const createYouTubeTools = require('./structured/YouTube');
 const StructuredWolfram = require('./structured/Wolfram');
+const createYouTubeTools = require('./structured/YouTube');
 const StructuredACS = require('./structured/AzureAISearch');
 const StructuredSD = require('./structured/StableDiffusion');
 const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const TavilySearchResults = require('./structured/TavilySearchResults');
-const FluxAPI = require('./structured/FluxAPI');
 const WebNavigator = require('./structured/WebNavigator');
 const E2BCode = require('./structured/E2BCode');
 const TimeAPI = require('./structured/TimeAPI');
@@ -34,6 +34,7 @@ module.exports = {
   manifestToolMap,
   // Structured Tools
   DALLE3,
+  FluxAPI,
   OpenWeather,
   StructuredSD,
   StructuredACS,
@@ -42,7 +43,6 @@ module.exports = {
   StructuredWolfram,
   createYouTubeTools,
   TavilySearchResults,
-  FluxAPI,
   WebNavigator,
   E2BCode,
   TimeAPI,
