@@ -19,7 +19,10 @@ This fork is a personal project to add a few features to LibreChat and integrate
 ## Known Changes from danny-avila/LibreChat
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
-- Flux AI plugin added to the tools list.
+- QuickChart plugin added to the tools list.
+- TimeAPI.io plugin added to the tools list.
+- ✅ MERGED UPSTREAM - OpenWeather - Weather plugin added to the tools list.
+- ✅ MERGED UPSTREAM - Flux AI plugin added to the tools list.
 
 
 ### Why E2B?
