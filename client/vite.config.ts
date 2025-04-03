@@ -108,7 +108,8 @@ export default defineConfig({
         '@codemirror/lang-json',
         '@react-hook/intersection-observer',
         'anser',
-        'escape-carriage'
+        'escape-carriage',
+        'clean-set'
       ],
       output: {
         manualChunks(id: string) {
