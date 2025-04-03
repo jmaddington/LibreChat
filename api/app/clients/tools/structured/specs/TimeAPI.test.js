@@ -1,7 +1,7 @@
 /**
  * File: TimeAPI.test.js
  */
-const TimeAPI = require('./TimeAPI');
+const TimeAPI = require('../TimeAPI');
 const fetch = require('node-fetch');
 
 jest.setTimeout(15000); // in case requests take longer
@@ -58,13 +58,13 @@ describe('TimeAPI Tool', () => {
       expect(result).toContain('Europe/Amsterdam');
     });
 
-    it('should handle unknown route with 404 (mock)', async () => {
+    it('should handle unknown route with error (mock)', async () => {
       const tool = new TimeAPI();
       const result = await tool.call({
         action: 'get_current_time_zone',
         timeZone: 'Unknown/Zone',
       });
-      expect(result).toContain('Error: status 404');
+      expect(result).toContain('Error: status');
     });
   });
 

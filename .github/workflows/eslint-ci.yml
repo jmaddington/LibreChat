@@ -5,10 +5,15 @@ on:
     branches:
       - main
       - dev
+      - jm-production
       - release/*
+      - 'tracking/**'
+      - 'feature/**'
     paths:
       - 'api/**'
       - 'client/**'
+  workflow_dispatch:
+    # Allow manual triggering
 
 jobs:
   eslint_checks:

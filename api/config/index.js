@@ -76,7 +76,6 @@ function createAxiosInstance() {
 
       instance.defaults.proxy = proxyConfig;
     } catch (error) {
-      console.error('Error parsing proxy URL:', error);
       throw new Error(`Invalid proxy URL: ${process.env.proxy}`);
     }
   }
