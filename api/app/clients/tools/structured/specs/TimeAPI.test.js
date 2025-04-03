@@ -1,7 +1,7 @@
 /**
  * File: TimeAPI.test.js
  */
-const TimeAPI = require('./TimeAPI');
+const TimeAPI = require('../TimeAPI');
 const fetch = require('node-fetch');
 
 jest.setTimeout(15000); // in case requests take longer
