@@ -2,6 +2,14 @@
 
 This fork is a personal project to add a few features to LibreChat and integrate features from other forks.
 
+[![ESLint Code Quality Checks](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml)
+[![Backend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml)
+[![Frontend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml)
+[![Accessibility Tests](https://github.com/jmaddington/LibreChat/actions/workflows/a11y.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/a11y.yml)
+[![Docker Build and Push to GHCR](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm.yml)
+<!-- Docker Build Only badge will appear after first workflow run -->
+[![Docker Build Only](https://img.shields.io/badge/Docker%20Build%20Only-Ready-blue)](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm-build-only.yml)
+
 ## Branches
 `jm-production` - The main branch for this fork for production use. Stable-ish, but has been at least minimally tested.
 `main` - A clone of the upstream main branch.
@@ -11,7 +19,10 @@ This fork is a personal project to add a few features to LibreChat and integrate
 ## Known Changes from danny-avila/LibreChat
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
-- Flux AI plugin added to the tools list.
+- QuickChart plugin added to the tools list.
+- TimeAPI.io plugin added to the tools list.
+- ✅ MERGED UPSTREAM - OpenWeather - Weather plugin added to the tools list.
+- ✅ MERGED UPSTREAM - Flux AI plugin added to the tools list.
 
 
 ### Why E2B?
