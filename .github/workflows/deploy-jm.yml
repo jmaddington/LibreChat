@@ -6,7 +6,7 @@ on:
     inputs:
       branch:
         description: 'Branch to build from'
-        required: true
+        required: false
         default: 'jm-production'
         type: string
       tag:
