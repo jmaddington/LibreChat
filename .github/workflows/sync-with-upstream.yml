@@ -47,11 +47,40 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           
+          # Create temporary directory
+          mkdir -p tmp_workflows
+          
+          # Copy specific workflow files from upstream to temporary location
+          git show upstream/main:.github/workflows/eslint-ci.yml > tmp_workflows/eslint-ci.yml
+          git show upstream/main:.github/workflows/frontend-review.yml > tmp_workflows/frontend-review.yml
+          git show upstream/main:.github/workflows/backend-review.yml > tmp_workflows/backend-review.yml
+          git show upstream/main:.github/workflows/deploy-jm-build-only.yml > tmp_workflows/deploy-jm-build-only.yml
+          
           # Merge changes from upstream
           git merge upstream/main --no-edit
           
+          # Copy the workflow files back from temporary location
+          cp tmp_workflows/eslint-ci.yml .github/workflows/eslint-ci.yml
+          cp tmp_workflows/frontend-review.yml .github/workflows/frontend-review.yml
+          cp tmp_workflows/backend-review.yml .github/workflows/backend-review.yml
+          cp tmp_workflows/deploy-jm-build-only.yml .github/workflows/deploy-jm-build-only.yml
+          
+          # Add the copied files to git
+          git add .github/workflows/eslint-ci.yml
+          git add .github/workflows/frontend-review.yml
+          git add .github/workflows/backend-review.yml
+          git add .github/workflows/deploy-jm-build-only.yml
+          
+          # Commit the copied files if there are any changes
+          if [ -n "$(git status --porcelain)" ]; then
+            git commit -m "Update workflow files from upstream"
+          fi
+          
           # Push changes to origin
           git push origin jm-production
+          
+          # Clean up temporary directory
+          rm -rf tmp_workflows
         
       # The workflows will be automatically triggered because we pushed to jm-production
       # We don't need to explicitly trigger them
