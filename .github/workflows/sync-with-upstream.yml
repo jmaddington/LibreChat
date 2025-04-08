@@ -1,0 +1,57 @@
+name: Sync with Upstream and Run CI
+
+on:
+  # Run on a schedule (every hour)
+  schedule:
+    - cron: '0 * * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: jm-production
+          fetch-depth: 0
+      
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/danny-avila/LibreChat.git
+          git fetch upstream
+      
+      - name: Check for new changes
+        id: check_changes
+        run: |
+          # Get the latest commit hash from upstream/main
+          UPSTREAM_HASH=$(git rev-parse upstream/main)
+          
+          # Get the latest commit hash that was merged from upstream into our jm-production
+          BASE_HASH=$(git merge-base jm-production upstream/main)
+          
+          if [ "$UPSTREAM_HASH" = "$BASE_HASH" ]; then
+            echo "No new changes in upstream repository"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "New changes detected in upstream repository"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Sync with upstream
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          # Configure Git
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          
+          # Merge changes from upstream
+          git merge upstream/main --no-edit
+          
+          # Push changes to origin
+          git push origin jm-production
+        
+      # The workflows will be automatically triggered because we pushed to jm-production
+      # We don't need to explicitly trigger them
