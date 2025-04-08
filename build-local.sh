@@ -14,6 +14,9 @@ fi
 echo "🔧 Setting up Docker buildx..."
 BUILDER_NAME="librechat-builder"
 
+# Avoid rollup architecture-specific issues
+export ROLLUP_SKIP_NODEJS_NATIVE=true
+
 # Check if builder exists and remove it
 if docker buildx inspect $BUILDER_NAME >/dev/null 2>&1; then
  docker buildx rm $BUILDER_NAME >/dev/null 2>&1

@@ -55,6 +55,11 @@ export type ToolContentPart =
       mimeType: string;
     }
   | {
+      type: 'audio';
+      data: string;
+      mimeType: string;
+    }
+  | {
       type: 'resource';
       resource: {
         uri: string;

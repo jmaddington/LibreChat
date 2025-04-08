@@ -31,6 +31,7 @@ FROM base AS mcp-build
 WORKDIR /app/packages/mcp
 COPY packages/mcp ./
 COPY --from=data-provider-build /app/packages/data-provider/dist /app/packages/data-provider/dist
+ENV ROLLUP_SKIP_NODEJS_NATIVE=true
 RUN npm run build
 
 # Build data-schemas
