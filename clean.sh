@@ -6,7 +6,7 @@ rm package-lock.json
 # npm install kareem
 echo "Installing cheerio and @e2b/code-interpreter better-sqlite3"
 cd api/
-npm install cheerio @e2b/code-interpreter better-sqlite3"
+npm install cheerio @e2b/code-interpreter better-sqlite3
 cd ..
 echo "Running ci"
 npm ci

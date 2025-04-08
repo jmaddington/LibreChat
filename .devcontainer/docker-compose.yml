@@ -7,12 +7,10 @@ services:
     links:
       - mongodb-lcdevcontainer
       - meilisearch-lcdevcontainer
-    ports:
-      - 80:80
-      - 9000:3080               # Change it to 9000:3080 to use nginx
-      - 3090:3090
-    # extra_hosts: # if you are running APIs on docker you need access to, you will need to uncomment this line and next
-    # - "host.docker.internal:host-gateway"
+    # ports:
+    #   - 3080:3080               # Change it to 9000:3080 to use nginx
+    extra_hosts: # if you are running APIs on docker you need access to, you will need to uncomment this line and next
+    - "host.docker.internal:host-gateway"
 
     volumes:
       # This is where VS Code should expect to find your project's source code and the value of "workspaceFolder" in .devcontainer/devcontainer.json
