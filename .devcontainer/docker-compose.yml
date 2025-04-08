@@ -1,12 +1,12 @@
 services:
-  app:
+  app-lcdevcontainer:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     # restart: always
     links:
-      - mongodb
-      - meilisearch
+      - mongodb-lcdevcontainer
+      - meilisearch-lcdevcontainer
     ports:
       - 80:80
       - 3080:3090               # Change it to 9000:3080 to use nginx
@@ -21,10 +21,10 @@ services:
       # - /var/run/docker.sock:/var/run/docker.sock 
     environment:
       # - HOST=0.0.0.0
-      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+      - MONGO_URI=mongodb://mongodb-lcdevcontainer:27017/LibreChat
       # - CHATGPT_REVERSE_PROXY=http://host.docker.internal:8080/api/conversation # if you are hosting your own chatgpt reverse proxy with docker
       # - OPENAI_REVERSE_PROXY=http://host.docker.internal:8070/v1/chat/completions # if you are hosting your own chatgpt reverse proxy with docker
-      - MEILI_HOST=http://meilisearch:7700
+      - MEILI_HOST=http://meilisearch-lcdevcontainer:7700
 
     # Runs app on the same network as the service container, allows "forwardPorts" in devcontainer.json function.
     # network_mode: service:another-service
@@ -38,8 +38,8 @@ services:
     # Overrides default command so things don't shut down after the process ends.
     command: /bin/sh -c "while sleep 1000; do :; done"  
 
-  mongodb:
-    container_name: chat-mongodb
+  mongodb-lcdevcontainer:
+    container_name: chat-mongodb-lcdevcontainer
     expose:
       - 27017
     # ports:
@@ -49,8 +49,8 @@ services:
     volumes:
       - ./data-node:/data/db
     command: mongod --noauth
-  meilisearch:
-    container_name: chat-meilisearch
+  meilisearch-lcdevcontainer:
+    container_name: chat-meilisearch-lcdevcontainer
     image: getmeili/meilisearch:v1.5
     # restart: always
     expose:
