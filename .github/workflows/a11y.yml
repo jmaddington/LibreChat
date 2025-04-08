@@ -2,21 +2,28 @@ name: Lint for accessibility issues
 
 on:
   pull_request:
+    branches: 
+      - main
+      - dev
+      - jm-production
+      - release/*
+      - 'tracking/**'
+      - 'feature/**'
     paths:
       - 'client/src/**'
   workflow_dispatch:
     inputs:
       run_workflow:
         description: 'Set to true to run this workflow'
-        required: true
-        default: 'false'
+        required: false
+        default: 'true'
 
 jobs:
   axe-linter:
     runs-on: ubuntu-latest
     if: >
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == 'danny-avila/LibreChat') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_workflow == 'true')
+      (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == 'jmaddington/LibreChat' || github.event.pull_request.head.repo.full_name == 'danny-avila/LibreChat')) ||
+      (github.event_name == 'workflow_dispatch')
     
     steps:
       - uses: actions/checkout@v4

@@ -1,6 +1,6 @@
 {
   "dockerComposeFile": "docker-compose.yml",
-  "service": "app",
+  "service": "app-lcdevcontainer",
   "workspaceFolder": "/workspaces",
   "customizations": {
     "vscode": {

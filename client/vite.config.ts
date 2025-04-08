@@ -92,7 +92,25 @@ export default defineConfig({
     minify: 'terser',
     rollupOptions: {
       preserveEntrySignatures: 'strict',
-      // external: ['uuid'],
+      external: [
+        '@codesandbox/sandpack-react',
+        '@stitches/core',
+        '@codemirror/autocomplete',
+        '@codemirror/commands',
+        '@codemirror/language',
+        '@codemirror/lint',
+        '@codemirror/search',
+        '@codemirror/state',
+        '@codemirror/view',
+        '@codemirror/lang-css',
+        '@codemirror/lang-html',
+        '@codemirror/lang-javascript',
+        '@codemirror/lang-json',
+        '@react-hook/intersection-observer',
+        'anser',
+        'escape-carriage',
+        'clean-set'
+      ],
       output: {
         manualChunks(id: string) {
           if (id.includes('node_modules')) {
