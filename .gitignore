@@ -113,3 +113,5 @@ release/
 !/client/src/@types/i18next.d.ts
 
 e2btemplates.yml
+packages/mcp/src/types/mcp.ts
+docs/*
