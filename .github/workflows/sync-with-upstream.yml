@@ -46,9 +46,15 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           
-          # Save our workflow file to a temp directory
+          # Save our workflow files to a temp directory
           mkdir -p /tmp/workflows
           cp .github/workflows/sync-with-upstream.yml /tmp/workflows/
+          
+          # Save upstream version of specified workflows
+          git show upstream/main:.github/workflows/eslint-ci.yml > /tmp/workflows/eslint-ci.yml
+          git show upstream/main:.github/workflows/frontend-review.yml > /tmp/workflows/frontend-review.yml
+          git show upstream/main:.github/workflows/backend-review.yml > /tmp/workflows/backend-review.yml
+          git show upstream/main:.github/workflows/deploy-jm-build-only.yml > /tmp/workflows/deploy-jm-build-only.yml
           
           # Reset our main branch to match upstream main
           git fetch upstream
@@ -57,12 +63,20 @@ jobs:
           # Ensure .github/workflows directory exists
           mkdir -p .github/workflows
           
-          # Copy our workflow file back
+          # Copy our workflow files back
           cp /tmp/workflows/sync-with-upstream.yml .github/workflows/
+          cp /tmp/workflows/eslint-ci.yml .github/workflows/
+          cp /tmp/workflows/frontend-review.yml .github/workflows/
+          cp /tmp/workflows/backend-review.yml .github/workflows/
+          cp /tmp/workflows/deploy-jm-build-only.yml .github/workflows/
           
           # Commit and push the changes
           git add .github/workflows/sync-with-upstream.yml
-          git commit -m "Keep sync workflow after resetting to upstream main"
+          git add .github/workflows/eslint-ci.yml
+          git add .github/workflows/frontend-review.yml
+          git add .github/workflows/backend-review.yml
+          git add .github/workflows/deploy-jm-build-only.yml
+          git commit -m "Keep specified workflow files after resetting to upstream main"
           
           # Push changes to origin (with force since we did a hard reset)
           git push --force origin main
