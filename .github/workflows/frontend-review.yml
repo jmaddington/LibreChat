@@ -6,14 +6,21 @@ on:
       - main
       - dev
       - jm-production
-      - release/*
+      - release/**
       - 'tracking/**'
       - 'feature/**'
-    paths:
-      - 'client/**'
-      - 'packages/**'
+
   workflow_dispatch:
     # Allow manual triggering
+
+  push:
+    branches:
+      - main
+      - dev
+      - jm-production
+      - release/**
+      - 'tracking/**'
+      - 'feature/**'
 
 jobs:
   tests_frontend_ubuntu:

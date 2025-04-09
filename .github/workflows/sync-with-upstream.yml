@@ -3,7 +3,7 @@ name: Sync with Upstream and Run CI
 on:
   # Run on a schedule (every hour)
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/4 * * * *'
   
   # Allow manual triggering
   workflow_dispatch:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: jm-production
+          ref: main
           fetch-depth: 0
       
       - name: Add upstream remote
@@ -28,9 +28,8 @@ jobs:
         run: |
           # Get the latest commit hash from upstream/main
           UPSTREAM_HASH=$(git rev-parse upstream/main)
-          
-          # Get the latest commit hash that was merged from upstream into our jm-production
-          BASE_HASH=$(git merge-base jm-production upstream/main)
+          # Get the latest commit hash that was merged from upstream into our main branch
+          BASE_HASH=$(git merge-base main upstream/main)
           
           if [ "$UPSTREAM_HASH" = "$BASE_HASH" ]; then
             echo "No new changes in upstream repository"
@@ -47,11 +46,35 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           
-          # Merge changes from upstream
-          git merge upstream/main --no-edit
+          # Save our workflow files to a temp directory
+          mkdir -p /tmp/workflows
+          cp .github/workflows/sync-with-upstream.yml /tmp/workflows/
+          cp .github/workflows/eslint-ci.yml > /tmp/workflows/eslint-ci.yml
+          cp .github/workflows/frontend-review.yml > /tmp/workflows/frontend-review.yml
+          cp .github/workflows/backend-review.yml > /tmp/workflows/backend-review.yml
           
-          # Push changes to origin
-          git push origin jm-production
+          # Reset our main branch to match upstream main
+          git fetch upstream
+          git reset --hard upstream/main
+          
+          # Ensure .github/workflows directory exists
+          mkdir -p .github/workflows
+          
+          # Copy our workflow files back
+          cp /tmp/workflows/sync-with-upstream.yml .github/workflows/
+          cp /tmp/workflows/eslint-ci.yml .github/workflows/
+          cp /tmp/workflows/frontend-review.yml .github/workflows/
+          cp /tmp/workflows/backend-review.yml .github/workflows/
+          
+          # Commit and push the changes
+          git add .github/workflows/sync-with-upstream.yml
+          git add .github/workflows/eslint-ci.yml
+          git add .github/workflows/frontend-review.yml
+          git add .github/workflows/backend-review.yml
+          git commit -m "Keep specified workflow files after resetting to upstream main"
+          
+          # Push changes to origin (with force since we did a hard reset)
+          git push --force origin main
         
-      # The workflows will be automatically triggered because we pushed to jm-production
+      # The workflows will be automatically triggered because we pushed to main
       # We don't need to explicitly trigger them
