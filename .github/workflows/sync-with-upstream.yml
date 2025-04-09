@@ -3,7 +3,7 @@ name: Sync with Upstream and Run CI
 on:
   # Run on a schedule (every hour)
   schedule:
-    - cron: '0 * * * *'
+    - cron: '*/4 * * * *'
   
   # Allow manual triggering
   workflow_dispatch:
@@ -49,11 +49,9 @@ jobs:
           # Save our workflow files to a temp directory
           mkdir -p /tmp/workflows
           cp .github/workflows/sync-with-upstream.yml /tmp/workflows/
-          
-          # Save upstream version of specified workflows
-          git show upstream/main:.github/workflows/eslint-ci.yml > /tmp/workflows/eslint-ci.yml
-          git show upstream/main:.github/workflows/frontend-review.yml > /tmp/workflows/frontend-review.yml
-          git show upstream/main:.github/workflows/backend-review.yml > /tmp/workflows/backend-review.yml
+          cp .github/workflows/eslint-ci.yml > /tmp/workflows/eslint-ci.yml
+          cp .github/workflows/frontend-review.yml > /tmp/workflows/frontend-review.yml
+          cp .github/workflows/backend-review.yml > /tmp/workflows/backend-review.yml
           
           # Reset our main branch to match upstream main
           git fetch upstream

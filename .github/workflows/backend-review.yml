@@ -5,8 +5,21 @@ on:
       - main
       - dev
       - release/*
+      - feat/*
     paths:
       - 'api/**'
+
+  push:
+    branches:
+      - main
+      - dev
+      - release/*
+    paths:
+      - 'api/**'
+
+    # Allow manual triggering
+  workflow_dispatch:
+  
 jobs:
   tests_Backend:
     name: Run Backend unit tests

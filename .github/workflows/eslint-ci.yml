@@ -6,9 +6,16 @@ on:
       - main
       - dev
       - release/*
-    paths:
-      - 'api/**'
-      - 'client/**'
+      - feat/*
+
+  push:
+    branches:
+      - main
+      - dev
+      - release/*
+
+  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   eslint_checks:

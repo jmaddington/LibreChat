@@ -2,13 +2,25 @@ name: Frontend Unit Tests
 
 on:
   pull_request:
-    branches: 
+    branches:
+      - main
+      - dev
+      - release/*
+      - feat/*
+    paths:
+      - 'api/**'
+
+  push:
+    branches:
       - main
       - dev
       - release/*
     paths:
       - 'client/**'
       - 'packages/**'
+
+    # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   tests_frontend_ubuntu:
