@@ -1,0 +1,26 @@
+name: Auto-assign GitHub Copilot as Reviewer
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  assign-copilot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add Copilot as reviewer
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                reviewers: ['github-copilot']
+              });
+              console.log('Successfully requested GitHub Copilot as reviewer');
+            } catch (error) {
+              console.error('Error requesting GitHub Copilot as reviewer:', error);
+            }
