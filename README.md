@@ -16,6 +16,16 @@ This fork is a personal project to add a few features to LibreChat and integrate
 `tracking/YYYY/MM/DD-XX` - Tracking branches for specific merges from upstream, with date and sequence number.
 `new/feature/X` - Branches for new features, kept open until they are feature complete and merged.
 
+## Merge instructions
+
+1. Create a new tracking branch
+2. Start a squash merge
+
+The following files should be taken from our fork:
+`.devcontainer/*`
+`.github/workflows/jm*.yml`
+
+
 ## Known Changes from danny-avila/LibreChat
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
