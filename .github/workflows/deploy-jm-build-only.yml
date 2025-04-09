@@ -8,6 +8,7 @@ on:
             - dev
             - release/*
             - feat/*
+            - jm-production
 
     push:
         branches:
@@ -15,6 +16,7 @@ on:
             - dev
             - release/*
             - feat/*
+            - jm-production
 
     # Allow manual triggering with custom parameters
     workflow_dispatch:

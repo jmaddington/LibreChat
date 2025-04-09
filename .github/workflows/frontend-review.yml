@@ -7,17 +7,15 @@ on:
       - dev
       - release/*
       - feat/*
-    paths:
-      - 'api/**'
+      - jm-production
 
   push:
     branches:
       - main
       - dev
       - release/*
-    paths:
-      - 'client/**'
-      - 'packages/**'
+      - feat/*
+      - jm-production
 
     # Allow manual triggering
   workflow_dispatch:
