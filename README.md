@@ -22,11 +22,31 @@ This fork is a personal project to add a few features to LibreChat and integrate
 2. Start a squash merge
 
 The following files should be taken from our fork:
+`build-local.sh`
+`clean.sh`
+`backend-review.sh`
+`frontend-review.sh`
 `.devcontainer/*`
 `.github/workflows/jm*.yml`
+`api/models/Sandbox.js`
+`api/models/schema/sandboxSchema.js`
+`api/app/clients/tools/structured/E2BCode.js`
+`api/app/clients/tools/structured/E2BCode.md`
+`api/app/clients/tools/structured/WebNavigator.js`
 
+The following files will need to be merged:
+`api/app/clients/tools/index.js`
+`api/app/clients/tools/manifest.json`
+`api/app/clients/tools/util/handleTools.js`
+
+All other files should (probably) be taken from upstream as is.
+
+3. Run `./clean.sh` which will remove the `node_modules` and `package-lock.json` files, install our own dependencies, and then regenerate the `package-lock.json` file.
+4. Ensure that `build-local.sh` runs successfully. If it doesn't, don't expect unit tests to pass on Github.
+5. Push to Github and create a PR to trigger automated unit tetsts
 
 ## Known Changes from danny-avila/LibreChat
+
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
 - QuickChart plugin added to the tools list.
