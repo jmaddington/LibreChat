@@ -54,8 +54,5 @@ jobs:
           file: ${{ github.event.inputs.dockerfile || 'Dockerfile.multi' }}
           push: false
           # Add build cache for faster builds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Output built image to local Docker engine
-          load: true
-          tags: librechat:local-build
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
