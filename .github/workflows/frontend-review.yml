@@ -15,6 +15,11 @@ on:
   workflow_dispatch:
     # Allow manual triggering
 
+  push:
+    branches:
+      - main
+      - jm-production
+
 jobs:
   tests_frontend_ubuntu:
     name: Run frontend unit tests on Ubuntu
