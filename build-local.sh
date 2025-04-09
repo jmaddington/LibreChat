@@ -28,6 +28,7 @@ echo "⏱️ This might take a few minutes..."
 # Run the build without pushing (--load instead of --push)
 # Adding --progress=plain for detailed output
 docker buildx build \
+ --no-cache \
  --platform linux/amd64 \
  --tag librechat:local-test \
  --file Dockerfile.multi \
