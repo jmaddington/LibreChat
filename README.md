@@ -43,8 +43,7 @@ All other files should (probably) be taken from upstream as is.
 
 3. Run `./clean.sh` which will remove the `node_modules` and `package-lock.json` files, install our own dependencies, and then regenerate the `package-lock.json` file.
 4. Ensure that `build-local.sh` runs successfully. If it doesn't, don't expect unit tests to pass on Github.
-5. Push to Github and create a PR to trigger automated unit tetsts
-
+5. Push to Github and create a PR to trigger automated unit tests
 ## Known Changes from danny-avila/LibreChat
 
 - E2B.dev code interpreter added to the tools list
