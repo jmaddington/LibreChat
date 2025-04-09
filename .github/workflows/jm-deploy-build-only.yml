@@ -5,18 +5,18 @@ on:
     pull_request:
         branches:
             - main
+            - main-upstream
             - dev
             - release/*
             - feat/*
-            - jm-production
 
     push:
         branches:
             - main
+            - main-upstream
             - dev
             - release/*
             - feat/*
-            - jm-production
 
     # Allow manual triggering with custom parameters
     workflow_dispatch:
@@ -24,7 +24,7 @@ on:
             branch:
                 description: 'Branch to build from'
                 required: true
-                default: 'jm-production'
+                default: 'main'
                 type: string
 
             dockerfile:
@@ -40,8 +40,8 @@ jobs:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
         with:
-          # Use the specified branch from manual input or jm-production for auto runs
-          ref: ${{ github.event.inputs.branch || 'jm-production' }}
+          # Use the specified branch from manual input or main for auto runs
+          ref: ${{ github.event.inputs.branch || 'main' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
