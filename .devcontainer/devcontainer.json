@@ -4,7 +4,14 @@
   "workspaceFolder": "/workspaces",
   "customizations": {
     "vscode": {
-      "extensions": [],
+      "extensions": [
+        "github.vscode-github-actions",
+        "GitHub.vscode-pull-request-github",
+        "GitHub.copilot-chat",
+        "GitHub.copilot",
+        "saoudrizwan.claude-dev",
+        "RooVeterinaryInc.roo-cline"
+      ],
       "settings": {
         "terminal.integrated.profiles.linux": {
           "bash": null
