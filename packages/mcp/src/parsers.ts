@@ -29,6 +29,10 @@ function isImageContent(item: t.ToolContentPart): item is t.ImageContent {
   return item.type === 'image';
 }
 
+function isAudioContent(item: t.ToolContentPart): item is t.AudioContent {
+  return item.type === 'audio';
+}
+
 function parseAsString(result: t.MCPToolCallResponse): string {
   const content = result?.content ?? [];
   if (!content.length) {
@@ -100,6 +104,7 @@ export function formatToolContent(
   const contentHandlers: {
     text: (item: Extract<t.ToolContentPart, { type: 'text' }>) => void;
     image: (item: t.ToolContentPart) => void;
+    audio: (item: Extract<t.ToolContentPart, { type: 'audio' }>) => void;
     resource: (item: Extract<t.ToolContentPart, { type: 'resource' }>) => void;
   } = {
     text: (item) => {
@@ -122,6 +127,20 @@ export function formatToolContent(
       } else {
         formattedContent.push(formattedImage);
       }
+    },
+    
+    audio: (item) => {
+      if (!isAudioContent(item)) {
+        return;
+      }
+      // Convert audio to text representation
+      if (currentTextBlock) {
+        formattedContent.push({ type: 'text', text: currentTextBlock });
+        currentTextBlock = '';
+      }
+      // Add a text representation for the audio file
+      currentTextBlock += (currentTextBlock ? '\n\n' : '') + 
+        `[Audio file: ${item.mimeType}]`;
     },
 
     resource: (item) => {

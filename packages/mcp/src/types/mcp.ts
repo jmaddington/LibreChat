@@ -55,6 +55,11 @@ export type ToolContentPart =
       mimeType: string;
     }
   | {
+      type: 'audio';
+      data: string;
+      mimeType: string;
+    }
+  | {
       type: 'resource';
       resource: {
         uri: string;
@@ -64,6 +69,7 @@ export type ToolContentPart =
       };
     };
 export type ImageContent = Extract<ToolContentPart, { type: 'image' }>;
+export type AudioContent = Extract<ToolContentPart, { type: 'audio' }>;
 export type MCPToolCallResponse =
   | undefined
   | {
