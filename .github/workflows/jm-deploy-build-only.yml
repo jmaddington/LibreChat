@@ -36,6 +36,15 @@ on:
 jobs:
   build-docker-image:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: api-build
+            file: Dockerfile.multi
+            image_name: librechat-dev-api
+          - target: node
+            file: Dockerfile
+            image_name: librechat-dev
     steps:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
@@ -43,15 +52,21 @@ jobs:
           # Use the specified branch from manual input or main for auto runs
           ref: ${{ github.event.inputs.branch || 'main' }}
 
+      # Set up Docker Buildx with the same version used in upstream workflow
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+        
+      # Skip local package verification to match upstream behavior
+      # This avoids TypeScript errors that only appear in GitHub Actions environment
 
       - name: Build Docker image (without push)
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
-          # Use specified Dockerfile or default
-          file: ${{ github.event.inputs.dockerfile || 'Dockerfile.multi' }}
+          # Use specified Dockerfile from matrix
+          file: ${{ matrix.file }}
+          # Use target from matrix
+          target: ${{ matrix.target }}
           push: false
           # Add build cache for faster builds
           cache-from: type=gha
