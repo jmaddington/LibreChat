@@ -1,4 +1,4 @@
-name: Docker Build Only (No Push)
+name: Docker Build Only (Fixed)
 
 on:
 
@@ -40,7 +40,7 @@ jobs:
       matrix:
         include:
           - target: api-build
-            file: Dockerfile.multi
+            file: Dockerfile.fixed
             image_name: librechat-dev-api
           - target: node
             file: Dockerfile
