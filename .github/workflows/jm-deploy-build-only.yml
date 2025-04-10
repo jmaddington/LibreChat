@@ -77,8 +77,11 @@ jobs:
           # Use target from matrix
           target: ${{ matrix.target }}
           push: false
-          # Support for multiple architectures 
-          platforms: linux/amd64,linux/arm64
+          # Only use amd64 when using load option
+          platforms: linux/amd64
           # Add build cache for faster builds
-          # cache-from: type=gha
-          # cache-to: type=gha,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Output built image to local Docker engine
+          load: true
+          tags: ${{ matrix.image_name }}:test-build
