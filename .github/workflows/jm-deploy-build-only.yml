@@ -51,6 +51,10 @@ jobs:
         with:
           # Use the specified branch from manual input or main for auto runs
           ref: ${{ github.event.inputs.branch || 'main' }}
+          
+      # Set up QEMU for multi-architecture builds
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       # Set up Docker Buildx with the same version used in upstream workflow
       - name: Set up Docker Buildx
@@ -73,6 +77,8 @@ jobs:
           # Use target from matrix
           target: ${{ matrix.target }}
           push: false
+          # Support for multiple architectures 
+          platforms: linux/amd64,linux/arm64
           # Add build cache for faster builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
