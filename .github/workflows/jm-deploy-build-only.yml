@@ -10,6 +10,7 @@ on:
           - release/*
           - feat/*
           - tmp/**
+          - tracking/**
 
   push:
       branches:
@@ -20,6 +21,8 @@ on:
           - release/*
           - feat/*
           - tmp/**
+          - tracking/**
+
 
   # Allow manual triggering with custom parameters
   workflow_dispatch:
