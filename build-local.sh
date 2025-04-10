@@ -20,21 +20,21 @@ if docker buildx inspect $BUILDER_NAME; then
 fi
 
 # Create new builder instance
-docker buildx create --name $BUILDER_NAME --use --platform linux/amd64 | tee build.log  2>&1
+docker buildx create --name $BUILDER_NAME --use --platform linux/amd64
 
 echo "🔍 Starting local build validation..."
 echo "⏱️ This might take a few minutes..."
 
 # Run the build without pushing (--load instead of --push)
 # Adding --progress=plain for detailed output
-(docker buildx build \
+docker buildx build \
  --no-cache \
  --platform linux/amd64 \
  --tag librechat:local-test \
  --file Dockerfile.multi \
  --load \
  --progress=plain \
- .) | tee -a build.log 2>&1
+ .
 
 # Clean up
 echo "🧹 Cleaning up..."
