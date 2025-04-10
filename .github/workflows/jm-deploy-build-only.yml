@@ -34,54 +34,53 @@ on:
                 type: string
 
 jobs:
-  build-docker-image:
+  build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - target: api-build
-            file: Dockerfile.fixed
-            image_name: librechat-dev-api
+            file: Dockerfile.multi
+            image_name: librechat-api
           - target: node
             file: Dockerfile
-            image_name: librechat-dev
+            image_name: librechat
+
     steps:
-      - name: 'Checkout GitHub Action'
+      # Check out the repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # Use the specified branch from manual input or main for auto runs
-          ref: ${{ github.event.inputs.branch || 'main' }}
-          
-      # Set up QEMU for multi-architecture builds
+
+      # Set up QEMU
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      # Set up Docker Buildx with the same version used in upstream workflow
+      # Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
-      # Prepare environment variables needed for the build
+
+      # Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Prepare the environment
       - name: Prepare environment
         run: |
           cp .env.example .env
-      
-      # Skip local package verification to match upstream behavior
-      # This avoids TypeScript errors that only appear in GitHub Actions environment
 
-      - name: Build Docker image (without push)
+      # Build and push Docker images for each target
+      - name: Build images
         uses: docker/build-push-action@v5
         with:
           context: .
-          # Use specified Dockerfile from matrix
           file: ${{ matrix.file }}
-          # Use target from matrix
-          target: ${{ matrix.target }}
           push: false
-          # Only use amd64 when using load option
-          platforms: linux/amd64
-          # Add build cache for faster builds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Output built image to local Docker engine
-          load: true
-          tags: ${{ matrix.image_name }}:test-build
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image_name }}:latest
+          platforms: linux/amd64,linux/arm64
+          target: ${{ matrix.target }}
