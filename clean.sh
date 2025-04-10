@@ -5,7 +5,7 @@ echo "Installing primary dependencies with package-lock"
 npm ci || npm install
 
 echo "Installing our fork-specific dependencies"
-npm install cheerio @e2b/code-interpreter better-sqlite3 e2b --save
+npm install cheerio @e2b/code-interpreter better-sqlite3 e2b --save-dev
 
 echo "Building packages"
 npm run build:data-provider
