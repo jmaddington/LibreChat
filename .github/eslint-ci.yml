@@ -5,20 +5,20 @@ on:
     branches:
       - main
       - dev
-      - release/*
-      - feat/*
       - jm-production
+      - release/*
+      - 'tracking/**'
+      - 'feature/**'
+    paths:
+      - 'api/**'
+      - 'client/**'
+  workflow_dispatch:
+    # Allow manual triggering
 
   push:
     branches:
       - main
-      - dev
-      - release/*
-      - feat/*
       - jm-production
-      
-  # Allow manual triggering
-  workflow_dispatch:
 
 jobs:
   eslint_checks:

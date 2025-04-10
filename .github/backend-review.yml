@@ -4,21 +4,21 @@ on:
     branches:
       - main
       - dev
-      - release/*
-      - feat/*
       - jm-production
-
+      - release/*
+      - 'tracking/**'
+      - 'feature/**'
+    paths:
+      - 'api/**'
   push:
     branches:
       - main
-      - dev
-      - release/*
-      - feat/*
       - jm-production
+    paths:
+      - 'api/**'
 
-    # Allow manual triggering
   workflow_dispatch:
-  
+    # Allow manual triggering
 jobs:
   tests_Backend:
     name: Run Backend unit tests
