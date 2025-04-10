@@ -1,4 +1,4 @@
-name: ESLint Code Quality Checks
+name: JM - ESLint Code Quality Checks
 
 on:
   pull_request:

@@ -1,4 +1,4 @@
-name: Assign GitHub Copilot as PR Reviewer
+name: JM - Assign GitHub Copilot as PR Reviewer
 
 on:
   pull_request:

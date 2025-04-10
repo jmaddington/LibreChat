@@ -1,4 +1,4 @@
-name: Backend Unit Tests
+name: JM - Backend Unit Tests
 on:
   pull_request:
     branches:

@@ -1,4 +1,4 @@
-name: Upstream Sync
+name: JM - Upstream Sync
 
 on:
   # Run on a daily schedule
