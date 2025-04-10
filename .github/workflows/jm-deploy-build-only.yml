@@ -43,11 +43,15 @@ jobs:
           # Use the specified branch from manual input or main for auto runs
           ref: ${{ github.event.inputs.branch || 'main' }}
 
+      # Set up Docker Buildx with the same version used in upstream workflow
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+        
+      # Skip local package verification to match upstream behavior
+      # This avoids TypeScript errors that only appear in GitHub Actions environment
 
       - name: Build Docker image (without push)
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: .
           # Use specified Dockerfile or default
