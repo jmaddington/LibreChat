@@ -1,4 +1,4 @@
-name: Docker Build Only (Fixed)
+name: Docker Build Only
 
 on:
 
@@ -20,18 +20,24 @@ on:
 
     # Allow manual triggering with custom parameters
     workflow_dispatch:
-        inputs:
-            branch:
-                description: 'Branch to build from'
-                required: true
-                default: 'main'
-                type: string
-
-            dockerfile:
-                description: 'Dockerfile to use'
-                required: false
-                default: 'Dockerfile.multi'
-                type: string
+      inputs:
+        branch:
+          description: 'Branch to build from'
+          required: true
+          default: 'main'
+          type: string
+        
+        ref:
+          description: 'Git ref to checkout (branch, tag, or SHA)'
+          required: false
+          default: ''
+          type: string
+          
+        dockerfile:
+          description: 'Dockerfile to use'
+          required: false
+          default: 'Dockerfile.multi'
+          type: string
 
 jobs:
   build:
