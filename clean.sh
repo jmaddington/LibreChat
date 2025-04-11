@@ -1,8 +1,7 @@
 echo "Removing node_modules"
-rm -rf node_modules/
+find ./ -type d -name node_modules -exec rm -rf {} \;
 
 echo "Running ci"
-
 npm ci
 
 echo "Installing our fork-specific dependencies"
