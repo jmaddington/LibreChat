@@ -1,15 +1,15 @@
-name: Sync with Upstream and Run CI
+name: Mirror Upstream
 
 on:
-  # Run on a schedule (every hour)
+  # Runs once a day at 07:00 UTC
   schedule:
     - cron: '0 7 * * *'
-  
-  # Allow manual triggering
+
+  # Allow manual trigger
   workflow_dispatch:
 
 jobs:
-  sync-upstream:
+  mirror:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -17,55 +17,35 @@ jobs:
         with:
           ref: main-upstream
           fetch-depth: 0
-      
+
       - name: Add upstream remote
         run: |
           git remote add upstream https://github.com/danny-avila/LibreChat.git
           git fetch upstream
-      
-      - name: Check for new changes
+
+      - name: Check if upstream has changes
         id: check_changes
         run: |
-          # Get the latest commit hash from upstream/main
-          UPSTREAM_HASH=$(git rev-parse upstream/main)
-          # Get the latest commit hash that was merged from upstream into our main branch
-          BASE_HASH=$(git merge-base main upstream/main)
-          
-          if [ "$UPSTREAM_HASH" = "$BASE_HASH" ]; then
-            echo "No new changes in upstream repository"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+          # Compare local main-upstream with upstream/main to see if new commits exist
+          LOCAL=$(git rev-parse main-upstream)
+          REMOTE=$(git rev-parse upstream/main)
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "::set-output name=has_changes::false"
           else
-            echo "New changes detected in upstream repository"
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "::set-output name=has_changes::true"
           fi
-      
-      - name: Sync with upstream
+
+      - name: Mirror upstream changes
         if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           # Configure Git
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          
-          # Save our workflow files to a temp directory
-          mkdir -p /tmp/workflows
-          cp .github/workflows/jm*.yml /tmp/workflows/
-          
-          # Reset our main branch to match upstream main
+
+          # Reset local branch to match upstream exactly
+          git checkout main-upstream
           git fetch upstream
           git reset --hard upstream/main
-          
-          # Ensure .github/workflows directory exists
-          mkdir -p .github/workflows
-          
-          # Copy our workflow files back
-          cp /tmp/workflows/jm*.yml .github/workflows/
-          
-          # Commit and push the changes
-          git add .github/workflows/jm*.yml
-          git commit -m "Keep specified workflow files after resetting to upstream main"
-          
-          # Push changes to origin (with force since we did a hard reset)
+
+          # Force-push local mirror branch to origin
           git push --force origin main-upstream
-        
-      # The workflows will be automatically triggered because we pushed to main
-      # We don't need to explicitly trigger them
