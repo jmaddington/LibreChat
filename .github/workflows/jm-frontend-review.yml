@@ -1,26 +1,19 @@
-name: Frontend Unit Tests
+name: JM - Frontend Unit Tests
 
 on:
   pull_request:
-    branches: 
-      - main
-      - main-upstream
-      - dev/**
-      - release/**
-      - 'tracking/**'
-      - 'feature/**'
-
-  workflow_dispatch:
-    # Allow manual triggering
 
   push:
     branches:
       - main
       - main-upstream
-      - dev/**
+      - 'dev/**'
       - release/**
       - 'tracking/**'
       - 'feature/**'
+      - 'new/**'
+      
+  workflow_dispatch:
 
 jobs:
   tests_frontend_ubuntu:

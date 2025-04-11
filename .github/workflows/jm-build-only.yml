@@ -1,25 +1,17 @@
-name: Docker Build Only (API Stage)
+name: JM - Docker Build Only
 
 on:
   pull_request:
-      branches:
-          - main
-          - main-upstream
-          - upstream-main
-          - dev/**
-          - release/*
-          - feat/*
-          - tmp/**
-
+    
   push:
-      branches:
-          - main
-          - main-upstream
-          - upstream-main
-          - dev/**
-          - release/*
-          - feat/*
-          - tmp/**
+    branches:
+      - main
+      - main-upstream
+      - 'dev/**'
+      - release/**
+      - 'tracking/**'
+      - 'feature/**'
+      - 'new/**'
 
   # Allow manual triggering with custom parameters
   workflow_dispatch:
@@ -55,8 +47,9 @@ jobs:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
         with:
-          # Use the specified branch from manual input or main for auto runs
-          ref: ${{ github.event.inputs.branch || 'main' }}
+          # For manual runs: Use ref if provided, otherwise use branch
+          # For automated runs: Use the triggering ref
+          ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.ref || github.event.inputs.branch) || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
