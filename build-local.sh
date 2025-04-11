@@ -25,6 +25,16 @@ docker buildx create --name $BUILDER_NAME --use --platform linux/amd64 >/dev/nul
 echo "🔍 Starting local build validation..."
 echo "⏱️ This might take a few minutes..."
 
+docker buildx build \
+ --platform linux/amd64 \
+ --target api-build \
+ --tag librechat:local-api-build-test \
+ --file Dockerfile.multi \
+ --load \
+ --progress=plain \
+ --no-cache \
+ .
+
 # Run the build without pushing (--load instead of --push)
 # Adding --progress=plain for detailed output
 docker buildx build \
@@ -33,6 +43,7 @@ docker buildx build \
  --file Dockerfile.multi \
  --load \
  --progress=plain \
+ --no-cache \
  .
 
 # Clean up
