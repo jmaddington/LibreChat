@@ -24,7 +24,7 @@ on:
 jobs:
   tests_Backend:
     name: Run Backend unit tests
-    timeout-minutes: 60
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
       MONGO_URI: ${{ secrets.MONGO_URI }}

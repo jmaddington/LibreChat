@@ -27,6 +27,7 @@ on:
 
 jobs:
   deploy-gh-runner-aci:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout GitHub Action'

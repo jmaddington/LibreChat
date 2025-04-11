@@ -25,6 +25,7 @@ on:
 jobs:
   eslint_checks:
     name: Run ESLint Linting
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read
