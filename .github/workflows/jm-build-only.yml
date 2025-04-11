@@ -6,7 +6,7 @@ on:
           - main
           - main-upstream
           - upstream-main
-          - dev
+          - dev/**
           - release/*
           - feat/*
           - tmp/**
@@ -17,7 +17,7 @@ on:
           - main
           - main-upstream
           - upstream-main
-          - dev
+          - dev/**
           - release/*
           - feat/*
           - tmp/**

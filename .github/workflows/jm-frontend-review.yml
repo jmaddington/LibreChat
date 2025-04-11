@@ -5,7 +5,7 @@ on:
     branches: 
       - main
       - main-upstream
-      - dev
+      - dev/**
       - release/**
       - 'tracking/**'
       - 'feature/**'
@@ -17,7 +17,7 @@ on:
     branches:
       - main
       - main-upstream
-      - dev
+      - dev/**
       - release/**
       - 'tracking/**'
       - 'feature/**'

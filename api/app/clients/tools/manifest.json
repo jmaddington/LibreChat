@@ -207,5 +207,12 @@
         "description": "API Key from the e2b.dev dashboard"
       }
     ]
+  },
+  {
+    "name": "QuickChart",
+    "pluginKey": "quickchart",
+    "description": "Generate data visualizations and charts using QuickChart.io",
+    "icon": "/assets/quickchart_bar_chart_logo.svg",
+    "authConfig": []
   }
 ]
