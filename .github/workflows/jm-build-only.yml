@@ -2,26 +2,12 @@ name: Docker Build Only
 
 on:
   pull_request:
-      branches:
-          - main
-          - main-upstream
-          - upstream-main
-          - dev/**
-          - release/*
-          - feat/*
-          - tmp/**
-          - tracking/**
 
   push:
-      branches:
-          - main
-          - main-upstream
-          - upstream-main
-          - dev/**
-          - release/*
-          - feat/*
-          - tmp/**
-          - tracking/**
+    branches:
+      - main
+      - main-upstream
+      - 'dev/main'
 
   # Allow manual triggering with custom parameters
   workflow_dispatch:

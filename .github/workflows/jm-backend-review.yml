@@ -2,23 +2,12 @@ name: JM - Backend Unit Tests
 
 on:
   pull_request:
-    branches:
-      - main
-      - main-upstream
-      - 'dev/**'
-      - 'release/**'
-      - 'tracking/**'
-      - 'feature/**'
 
   push:
     branches:
       - main
       - main-upstream
-      - 'dev/**'
-      - 'release/**'
-      - 'tracking/**'
-      - 'feature/**'
-      - 'new/**'
+      - 'dev/main'
 
   workflow_dispatch:
     
