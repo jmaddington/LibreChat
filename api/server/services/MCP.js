@@ -37,8 +37,9 @@ async function createMCPTool({ req, toolKey, provider }) {
   }
 
   const [toolName, serverName] = toolKey.split(Constants.mcp_delimiter);
+  const userId = req.user?.id;
 
-  if (!req.user?.id) {
+  if (!userId) {
     logger.error(
       `[MCP][${serverName}][${toolName}] User ID not found on request. Cannot create tool.`,
     );
@@ -48,16 +49,15 @@ async function createMCPTool({ req, toolKey, provider }) {
   /** @type {(toolArguments: Object | string, config?: GraphRunnableConfig) => Promise<unknown>} */
   const _call = async (toolArguments, config) => {
     try {
-      const derivedSignal = config?.signal ? AbortSignal.any([config.signal]) : undefined;
-      const mcpManager = getMCPManager(config?.userId);
+      const mcpManager = getMCPManager();
       const result = await mcpManager.callTool({
         serverName,
         toolName,
         provider,
         toolArguments,
         options: {
-          userId: config?.configurable?.user_id,
-          signal: derivedSignal,
+          userId,
+          signal: config?.signal,
         },
       });
 
@@ -70,7 +70,7 @@ async function createMCPTool({ req, toolKey, provider }) {
       return result;
     } catch (error) {
       logger.error(
-        `[MCP][User: ${config?.userId}][${serverName}] Error calling "${toolName}" MCP tool:`,
+        `[MCP][User: ${userId}][${serverName}] Error calling "${toolName}" MCP tool:`,
         error,
       );
       throw new Error(

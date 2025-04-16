@@ -6,30 +6,26 @@ const logger = require('./winston');
 
 global.EventSource = EventSource;
 
-/** @type {MCPManager} */
 let mcpManager = null;
 let flowManager = null;
 
 /**
- * @param {string} [userId] - Optional user ID, to avoid disconnecting the current user.
  * @returns {MCPManager}
  */
-function getMCPManager(userId) {
+function getMCPManager() {
   if (!mcpManager) {
     mcpManager = MCPManager.getInstance(logger);
-  } else {
-    mcpManager.checkIdleConnections(userId);
   }
   return mcpManager;
 }
 
 /**
- * @param {Keyv} flowsCache
+ * @param {(key: string) => Keyv} getLogStores
  * @returns {FlowStateManager}
  */
-function getFlowStateManager(flowsCache) {
+function getFlowStateManager(getLogStores) {
   if (!flowManager) {
-    flowManager = new FlowStateManager(flowsCache, {
+    flowManager = new FlowStateManager(getLogStores(CacheKeys.FLOWS), {
       ttl: Time.ONE_MINUTE * 3,
       logger,
     });

@@ -50,7 +50,7 @@ const validateAndUpdateTool = async ({ req, tool, assistant_id }) => {
       return null;
     }
 
-    const parsedDomain = await domainParser(domain, true);
+    const parsedDomain = await domainParser(req, domain, true);
 
     if (!parsedDomain) {
       return null;
@@ -66,14 +66,16 @@ const validateAndUpdateTool = async ({ req, tool, assistant_id }) => {
  *
  * Necessary due to `[a-zA-Z0-9_-]*` Regex Validation, limited to a 64-character maximum.
  *
+ * @param {Express.Request} req - The Express Request object.
  * @param {string} domain - The domain name to encode/decode.
  * @param {boolean} inverse - False to decode from base64, true to encode to base64.
  * @returns {Promise<string>} Encoded or decoded domain string.
  */
-async function domainParser(domain, inverse = false) {
+async function domainParser(req, domain, inverse = false) {
   if (!domain) {
     return;
   }
+
   const domainsCache = getLogStores(CacheKeys.ENCODED_DOMAINS);
   const cachedDomain = await domainsCache.get(domain);
   if (inverse && cachedDomain) {
@@ -120,7 +122,7 @@ async function loadActionSets(searchParams) {
  * Creates a general tool for an entire action set.
  *
  * @param {Object} params - The parameters for loading action sets.
- * @param {string} params.userId
+ * @param {ServerRequest} params.req
  * @param {ServerResponse} params.res
  * @param {Action} params.action - The action set. Necessary for decrypting authentication values.
  * @param {ActionRequest} params.requestBuilder - The ActionRequest builder class to execute the API call.
@@ -131,7 +133,7 @@ async function loadActionSets(searchParams) {
  * @returns { Promise<typeof tool | { _call: (toolInput: Object | string) => unknown}> } An object with `_call` method to execute the tool input.
  */
 async function createActionTool({
-  userId,
+  req,
   res,
   action,
   requestBuilder,
@@ -152,7 +154,7 @@ async function createActionTool({
         try {
           if (metadata.auth.type === AuthTypeEnum.OAuth && metadata.auth.authorization_url) {
             const action_id = action.action_id;
-            const identifier = `${userId}:${action.action_id}`;
+            const identifier = `${req.user.id}:${action.action_id}`;
             const requestLogin = async () => {
               const { args: _args, stepId, ...toolCall } = config.toolCall ?? {};
               if (!stepId) {
@@ -160,7 +162,7 @@ async function createActionTool({
               }
               const statePayload = {
                 nonce: nanoid(),
-                user: userId,
+                user: req.user.id,
                 action_id,
               };
 
@@ -187,8 +189,7 @@ async function createActionTool({
                     expires_at: Date.now() + Time.TWO_MINUTES,
                   },
                 };
-                const flowsCache = getLogStores(CacheKeys.FLOWS);
-                const flowManager = getFlowStateManager(flowsCache);
+                const flowManager = getFlowStateManager(getLogStores);
                 await flowManager.createFlowWithHandler(
                   `${identifier}:oauth_login:${config.metadata.thread_id}:${config.metadata.run_id}`,
                   'oauth_login',
@@ -205,7 +206,7 @@ async function createActionTool({
                   'oauth',
                   {
                     state: stateToken,
-                    userId: userId,
+                    userId: req.user.id,
                     client_url: metadata.auth.client_url,
                     redirect_uri: `${process.env.DOMAIN_CLIENT}/api/actions/${action_id}/oauth/callback`,
                     /** Encrypted values */
@@ -231,10 +232,10 @@ async function createActionTool({
             };
 
             const tokenPromises = [];
-            tokenPromises.push(findToken({ userId, type: 'oauth', identifier }));
+            tokenPromises.push(findToken({ userId: req.user.id, type: 'oauth', identifier }));
             tokenPromises.push(
               findToken({
-                userId,
+                userId: req.user.id,
                 type: 'oauth_refresh',
                 identifier: `${identifier}:refresh`,
               }),
@@ -257,15 +258,14 @@ async function createActionTool({
                 const refresh_token = await decryptV2(refreshTokenData.token);
                 const refreshTokens = async () =>
                   await refreshAccessToken({
-                    userId,
                     identifier,
                     refresh_token,
+                    userId: req.user.id,
                     client_url: metadata.auth.client_url,
                     encrypted_oauth_client_id: encrypted.oauth_client_id,
                     encrypted_oauth_client_secret: encrypted.oauth_client_secret,
                   });
-                const flowsCache = getLogStores(CacheKeys.FLOWS);
-                const flowManager = getFlowStateManager(flowsCache);
+                const flowManager = getFlowStateManager(getLogStores);
                 const refreshData = await flowManager.createFlowWithHandler(
                   `${identifier}:refresh`,
                   'oauth_refresh',

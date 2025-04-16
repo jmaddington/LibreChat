@@ -1,6 +1,5 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { CacheKeys } = require('librechat-data-provider');
 const { getAccessToken } = require('~/server/services/TokenService');
 const { logger, getFlowStateManager } = require('~/config');
 const { getLogStores } = require('~/cache');
@@ -20,8 +19,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 router.get('/:action_id/oauth/callback', async (req, res) => {
   const { action_id } = req.params;
   const { code, state } = req.query;
-  const flowsCache = getLogStores(CacheKeys.FLOWS);
-  const flowManager = getFlowStateManager(flowsCache);
+
+  const flowManager = getFlowStateManager(getLogStores);
   let identifier = action_id;
   try {
     let decodedState;
