@@ -31,7 +31,9 @@ To merge with upstream ensure that the `main-upstream` branch is up to date with
 
 Then, create a new tracking branch from it, `tracking/YYYY/MM/DD-XX` and begin a merge from `dev/main` or `main` into the new tracking branch.
 
-Most of the files should be taken from upstream. verbatim. The following files should be taken from out fork:
+Most of the files should be taken from upstream. verbatim. That includes the package and package lock files, until later in this process.
+
+The following files should be taken from out fork:
 
  - `.github/workflows/jm*.yml` - These are the CI/CD workflows for this fork.
  - `.devcontainer/*` - This is the devcontainer for this fork.
@@ -40,12 +42,20 @@ Most of the files should be taken from upstream. verbatim. The following files s
  - `api/app/clients/tools/structured/WebNavigator.js`
  - `api/app/clients/tools/structured/TimeAPI.js`
  - `api/app/clients/tools/structured/QuickChart.js`
+ - `client/public/assets/*` related to the tools listed above.
+- All `.sh` files.
 
 These files need to be merged:
 
 - `api/app/clients/tools/manifest.json`
 - `api/app/clients/tools/index.js`
 - `api/app/clients/tools/util/handleTools.js`
+- `.gitignore` - This is the gitignore for this fork.
+
+After you've merged but before you commit, run `./clean.sh` _from inside the devcontainer`
+
+This will update the package and package lock files, so long as you properly took the files from upstream.
+
 
 After the merge is complete, run `./build-local.sh` to ensure things build on your machine. After that, push the tracking branch
 and open a PR from the tracking branch into `main` or `dev/main` as appropriate.
