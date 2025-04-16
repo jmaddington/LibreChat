@@ -302,27 +302,6 @@ export function updateConvoFieldsInfinite(
   }
 }
 
-export function updateConversation(
-  data: InfiniteData<ConversationCursorData> | undefined,
-  updatedConversation: TConversation
-): InfiniteData<ConversationCursorData> | undefined {
-  return updateConvoFieldsInfinite(data, updatedConversation);
-}
-
-export function deleteConversation(
-  data: InfiniteData<ConversationCursorData> | undefined, 
-  conversationId: string
-): InfiniteData<ConversationCursorData> | undefined {
-  return removeConvoFromInfinitePages(data, conversationId);
-}
-
-export function addConversation(
-  data: InfiniteData<ConversationCursorData> | undefined,
-  newConversation: TConversation
-): InfiniteData<ConversationCursorData> | undefined {
-  return addConversationToInfinitePages(data, newConversation);
-}
-
 export function storeEndpointSettings(conversation: TConversation | null) {
   if (!conversation) {
     return;
