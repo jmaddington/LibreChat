@@ -23,7 +23,6 @@ on:
           - tmp/**
           - tracking/**
 
-
   # Allow manual triggering with custom parameters
   workflow_dispatch:
     inputs:
@@ -52,6 +51,7 @@ on:
           
 jobs:
   build-docker-image:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout GitHub Action'

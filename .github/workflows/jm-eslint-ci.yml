@@ -1,4 +1,4 @@
-name: ESLint Code Quality Checks
+name: JM - ESLint Code Quality Checks
 
 on:
   pull_request:
@@ -9,22 +9,23 @@ on:
       - release/**
       - 'tracking/**'
       - 'feature/**'
-      
-  workflow_dispatch:
-    # Allow manual triggering
 
   push:
     branches:
       - main
       - main-upstream
-      - dev/**
+      - 'dev/**'
       - release/**
       - 'tracking/**'
       - 'feature/**'
+      - 'new/**'
+      
+  workflow_dispatch:
 
 jobs:
   eslint_checks:
     name: Run ESLint Linting
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -7,7 +7,10 @@ const connect = require('./connect');
 
 /**
  * Script to promote a user to administrator status
- * Usage: npm run promote-admin <email>
+ * Usage: npm run promote-admin <email> [-f|--force]
+ * 
+ * Options:
+ *   -f, --force    Skip confirmation prompt
  */
 (async () => {
   await connect();
@@ -17,10 +20,15 @@ const connect = require('./connect');
   console.purple('---------------------------');
 
   let email = '';
+  let force = false;
 
   // Parse command line arguments
-  if (process.argv.length >= 3) {
-    email = process.argv[2];
+  for (let i = 2; i < process.argv.length; i++) {
+    if (process.argv[i] === '-f' || process.argv[i] === '--force') {
+      force = true;
+    } else if (!email && process.argv[i].includes('@')) {
+      email = process.argv[i];
+    }
   }
 
   if (!email) {
@@ -45,14 +53,18 @@ const connect = require('./connect');
     silentExit(0);
   }
 
-  // Confirm the promotion
-  const confirmation = await askQuestion(
-    `Are you sure you want to promote ${email} to administrator? (y/N): `,
-  );
+  // Confirm the promotion unless force flag is used
+  if (!force) {
+    const confirmation = await askQuestion(
+      `Are you sure you want to promote ${email} to administrator? (y/N): `,
+    );
 
-  if (confirmation.toLowerCase() !== 'y') {
-    console.orange('Operation cancelled.');
-    silentExit(0);
+    if (confirmation.toLowerCase() !== 'y') {
+      console.orange('Operation cancelled.');
+      silentExit(0);
+    }
+  } else {
+    console.yellow(`Promoting ${email} to administrator without confirmation...`);
   }
 
   try {

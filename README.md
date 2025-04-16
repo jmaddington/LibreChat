@@ -25,6 +25,28 @@ This fork is a personal project to add a few features to LibreChat and integrate
 - ✅ MERGED UPSTREAM - Flux AI plugin added to the tools list.
 
 
+## Merge Instructions
+
+To merge with upstream ensure that the `main-upstream` branch is up to date with the upstream `main` branch. Then run the following commands:
+
+Then, create a new tracking branch from it, `tracking/YYYY/MM/DD-XX` and begin a merge from `dev/main` or `main` into the new tracking branch.
+
+Most of the files should be taken from upstream. verbatim. The following files should be taken from out fork:
+
+ - `.github/workflows/jm*.yml` - These are the CI/CD workflows for this fork.
+ - `.devcontainer/*` - This is the devcontainer for this fork.
+ - `api/app/clients/tools/structured/E2BCode.js`
+ - `api/app/clients/tools/structured/E2BCode.md`
+ - `api/app/clients/tools/structured/WebNavigator.js`
+ - `api/app/clients/tools/structured/TimeAPI.js`
+ - `api/app/clients/tools/structured/QuickChart.js`
+
+These files need to be merged:
+
+- `api/app/clients/tools/manifest.json`
+- `api/app/clients/tools/index.js`
+- `api/app/clients/tools/util/handleTools.js`
+
 ### Why E2B?
 LibreChat recently introduced their own code interpreter service. It's affordable, integrates seamlessly with their platform, and provides a viable revenue stream. So why not use it?
 
