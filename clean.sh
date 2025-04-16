@@ -1,14 +1,12 @@
-echo "Removing node_modules and package-lock.json"
-rm -rf node_modules/
-rm package-lock.json
+echo "Removing node_modules"
+find ./ -type d -name node_modules -exec rm -rf {} \;
 
 echo "Installing primary dependencies"
 
 npm ci
 
 echo "Installing our fork-specific dependencies"
-cd api/
-npm install cheerio @e2b/code-interpreter better-sqlite3
+npm install cheerio @e2b/code-interpreter better-sqlite3 --save
 
 echo "Running frontend"
 npm run frontend

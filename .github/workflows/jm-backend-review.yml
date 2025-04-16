@@ -1,30 +1,20 @@
-name: Backend Unit Tests
+name: JM - Backend Unit Tests
+
 on:
   pull_request:
-    branches:
-      - main
-      - main-upstream
-      - dev/**
-      - release/**
-      - 'tracking/**'
-      - 'feature/**'
 
   push:
     branches:
       - main
       - main-upstream
-      - dev/**
-      - release/**
-      - 'tracking/**'
-      - 'feature/**'
+      - 'dev/main'
 
   workflow_dispatch:
-    # Allow manual triggering
     
 jobs:
   tests_Backend:
     name: Run Backend unit tests
-    timeout-minutes: 60
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     env:
       MONGO_URI: ${{ secrets.MONGO_URI }}
