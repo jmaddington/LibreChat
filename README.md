@@ -47,6 +47,9 @@ These files need to be merged:
 - `api/app/clients/tools/index.js`
 - `api/app/clients/tools/util/handleTools.js`
 
+After the merge is complete, run `./build-local.sh` to ensure things build on your machine. After that, push the tracking branch
+and open a PR from the tracking branch into `main` or `dev/main` as appropriate.
+
 ### Why E2B?
 LibreChat recently introduced their own code interpreter service. It's affordable, integrates seamlessly with their platform, and provides a viable revenue stream. So why not use it?
 
