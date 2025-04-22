@@ -1,6 +1,11 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
 
+/**
+ * WordPress - A tool for interacting with WordPress sites via the REST API.
+ * Supports managing posts, pages, categories, tags, metadata, and media.
+ * Uses WordPress REST API with JWT authentication.
+ */
 class WordPress extends Tool {
   name = 'wordpress';
   description =
@@ -8,28 +13,36 @@ class WordPress extends Tool {
 
   // Schema for validating input arguments
   schema = z.object({
+    // Action selection
     action: z
       .enum([
+        // Content management
         'createPost',
         'editPost',
+        'listPaginatedPosts',
+        'getPostContentById',
+        'searchPosts',
+
+        // Taxonomy management
         'listCategories',
         'listTags',
-        'searchPosts',
-        'searchByMeta',
-        'updatePostMeta',
-        'updateCategory',
-        'updateTag',
-        'getPostMeta',
-        'deletePostMeta',
-        'listPaginatedPosts',
         'listPaginatedCategories',
         'listPaginatedTags',
-        'getPostContentById',
-        'getFeaturedImage',
         'addCategory',
         'deleteCategory',
+        'updateCategory',
         'addTag',
         'deleteTag',
+        'updateTag',
+
+        // Metadata operations
+        'searchByMeta',
+        'updatePostMeta',
+        'getPostMeta',
+        'deletePostMeta',
+
+        // Media management
+        'getFeaturedImage',
         'uploadImageFromURL',
         'setAIImageAsFeatured',
         'updateImageMeta',
@@ -703,6 +716,17 @@ class WordPress extends Tool {
       : 'No featured image available';
   }
 
+  /**
+   * Generates an image using OpenAI's DALL-E API and uploads it to WordPress as a featured image
+   *
+   * @param {string} token - WordPress authentication token
+   * @param {string} prompt - The text prompt to generate an image from
+   * @param {number} postId - The WordPress post ID to attach the image to
+   * @returns {Promise<Object>} Image metadata including URL and attachment ID
+   *
+   * @throws {Error} If OpenAI API key is missing or API requests fail
+   * @requires An OpenAI API key set in environment variables (OPENAI_API_KEY, DALLE3_API_KEY, or DALLE_API_KEY)
+   */
   async generateAndUploadAIImage(token, prompt, postId) {
     // Step 1: Generate Image from DALL-E API
     const openaiApiKey =
@@ -1097,8 +1121,29 @@ class WordPress extends Tool {
           return JSON.stringify({ error: `Unsupported action "${action}".` });
       }
     } catch (error) {
-      console.error(error);
-      return JSON.stringify({ error: error.message });
+      console.error('[WordPress Tool Error]', error);
+
+      // Categorize errors for better user feedback
+      let errorType = 'GENERAL_ERROR';
+      let errorMessage = error.message || 'An unknown error occurred';
+
+      if (errorMessage.includes('Authentication failed')) {
+        errorType = 'AUTH_ERROR';
+      } else if (errorMessage.includes('Failed to fetch')) {
+        errorType = 'NETWORK_ERROR';
+      } else if (errorMessage.toLowerCase().includes('not found')) {
+        errorType = 'NOT_FOUND_ERROR';
+      } else if (errorMessage.includes('OpenAI API key')) {
+        errorType = 'API_KEY_ERROR';
+      }
+
+      return JSON.stringify({
+        error: errorMessage,
+        errorType,
+        timestamp: new Date().toISOString(),
+        // Don't include stack traces in production responses
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack }),
+      });
     }
   }
 }
