@@ -13,6 +13,20 @@ class WordPress extends Tool {
 
   // Schema for validating input arguments
   schema = z.object({
+    // WordPress site credentials (only used if not provided through environment or auth config)
+    wordpress_url: z
+      .string()
+      .optional()
+      .describe('The WordPress site URL (e.g., https://example.com)'),
+    wordpress_username: z
+      .string()
+      .optional()
+      .describe('WordPress username for authentication'),
+    wordpress_password: z
+      .string()
+      .optional()
+      .describe('WordPress password or application password'),
+    
     // Action selection
     action: z
       .enum([
@@ -99,18 +113,60 @@ class WordPress extends Tool {
   constructor(fields = {}) {
     super();
 
-    // WordPress credentials
-    this.baseUrl = fields.WORDPRESS_BASE_URL || process.env.WORDPRESS_BASE_URL;
-    this.username = fields.WORDPRESS_USERNAME || process.env.WORDPRESS_USERNAME;
-    this.password = fields.WORDPRESS_PASSWORD || process.env.WORDPRESS_PASSWORD;
+    // User identifier (used for distinguishing token caches)
+    this.userId = fields.userId;
+    
+    // We store credentials in separate variables to avoid them being logged or serialized
+    const baseUrl = fields.WORDPRESS_BASE_URL || process.env.WORDPRESS_BASE_URL;
+    const username = fields.WORDPRESS_USERNAME || process.env.WORDPRESS_USERNAME;
+    const password = fields.WORDPRESS_PASSWORD || process.env.WORDPRESS_PASSWORD;
+    
+    // Assign to private variables using Symbol to make them less accessible
+    const credentialsSymbol = Symbol('credentials');
+    this[credentialsSymbol] = {
+      baseUrl,
+      username, 
+      password
+    };
+    
+    // Getter methods to access credentials safely
+    this.getBaseUrl = () => this[credentialsSymbol].baseUrl;
+    this.getUsername = () => this[credentialsSymbol].username;
+    this.getPassword = () => this[credentialsSymbol].password;
 
-    // Token cache
+    // Token cache with expiry
     this.token = null;
     this.tokenExpiry = null;
 
-    if (!this.baseUrl || !this.username || !this.password) {
+    // Validate that credentials are available
+    if (!baseUrl || !username || !password) {
       throw new Error('WordPress credentials or base URL are missing.');
     }
+  }
+  
+  /**
+   * Overrides toJSON to prevent credentials from being serialized
+   * @returns {Object} Safe representation of the class
+   */
+  toJSON() {
+    // Return a safe representation without credentials
+    return {
+      name: this.name,
+      description: this.description,
+      userId: this.userId,
+      hasToken: !!this.token,
+      tokenExpiry: this.tokenExpiry
+    };
+  }
+  
+  /**
+   * Gets the WordPress API endpoint URL
+   * @param {string} path - The API path (without leading slash)
+   * @returns {string} The full WordPress API URL
+   */
+  getApiUrl(path) {
+    const baseUrl = this.getBaseUrl();
+    return `${baseUrl}/wp-json/${path}`;
   }
 
   // Authenticate with WordPress and get a token
@@ -120,31 +176,39 @@ class WordPress extends Tool {
     if (this.token && this.tokenExpiry && now < this.tokenExpiry) {
       return this.token;
     }
+    
+    // Get credentials safely using getters
+    const username = this.getUsername();
+    const password = this.getPassword();
+    
+    try {
+      const response = await fetch(this.getApiUrl('jwt-auth/v1/token'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      });
 
-    const response = await fetch(`${this.baseUrl}/wp-json/jwt-auth/v1/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username: this.username,
-        password: this.password,
-      }),
-    });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`Authentication failed: ${data.message || 'Unknown error'}`);
+      }
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(`Authentication failed: ${data.message || 'Unknown error'}`);
+      // Cache the token for 50 minutes (assuming 1-hour validity)
+      this.token = data.token;
+      this.tokenExpiry = now + 50 * 60 * 1000;
+
+      return this.token;
+    } catch (error) {
+      throw new Error(`WordPress authentication failed: ${error.message}`);
     }
-
-    // Cache the token for 50 minutes (assuming 1-hour validity)
-    this.token = data.token;
-    this.tokenExpiry = now + 50 * 60 * 1000;
-
-    return this.token;
   }
 
   // Fetch posts from WordPress
   async listPosts(token) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts`, {
+    const response = await fetch(this.getApiUrl('wp/v2/posts'), {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -805,6 +869,12 @@ class WordPress extends Tool {
       }
 
       const {
+        // WordPress credentials if provided at call time
+        wordpress_url,
+        wordpress_username,
+        wordpress_password,
+        
+        // Action and other parameters
         action,
         title,
         content,
@@ -836,6 +906,32 @@ class WordPress extends Tool {
         prompt,
       } = validationResult.data;
 
+      // If user provided credentials in this call, temporarily override credentials
+      if (wordpress_url || wordpress_username || wordpress_password) {
+        // Store original credentials symbol reference
+        const originalCredentialsSymbol = Object.getOwnPropertySymbols(this)
+          .find(sym => sym.description === 'credentials');
+        const originalCredentials = originalCredentialsSymbol ? {...this[originalCredentialsSymbol]} : null;
+        
+        // Create a new credentials object with overrides
+        const credentialsSymbol = Symbol('credentials');
+        this[credentialsSymbol] = {
+          baseUrl: wordpress_url || this.getBaseUrl(),
+          username: wordpress_username || this.getUsername(),
+          password: wordpress_password || this.getPassword()
+        };
+        
+        // Update getters to use new credentials
+        this.getBaseUrl = () => this[credentialsSymbol].baseUrl;
+        this.getUsername = () => this[credentialsSymbol].username;
+        this.getPassword = () => this[credentialsSymbol].password;
+        
+        // Reset token cache so we get a new token with new credentials
+        this.token = null;
+        this.tokenExpiry = null;
+      }
+      
+      // Get authentication token with current credentials (original or temporary)
       const token = await this.getToken();
 
       switch (action) {
