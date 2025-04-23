@@ -188,7 +188,7 @@ class WordPress extends Tool {
     const password = this.getPassword();
 
     // For test environment, return a mock token if credentials are missing
-    if ((process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'CI') && 
+    if ((process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'CI') &&
         (!baseUrl || !username || !password)) {
       this.token = 'mock-token-for-testing';
       this.tokenExpiry = now + 50 * 60 * 1000;
