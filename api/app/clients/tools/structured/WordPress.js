@@ -26,7 +26,7 @@ class WordPress extends Tool {
       .string()
       .optional()
       .describe('WordPress password or application password'),
-    
+
     // Action selection
     action: z
       .enum([
@@ -70,7 +70,7 @@ class WordPress extends Tool {
     title: z.string().min(1).optional().describe('The title of the post or page.'),
     content: z.string().min(1).optional().describe('The content of the post or page.'),
     status: z.enum(['draft', 'publish', 'future']).optional().describe('The status of the post.'),
-    type: z.enum(['post', 'page']).optional().describe("The type of content. Defaults to 'post'."),
+    type: z.enum(['post', 'page']).optional().describe('The type of content. Defaults to \'post\'.'),
     tags: z.array(z.number()).optional().describe('An array of tag IDs to attach to the post.'),
     categories: z
       .array(z.number())
@@ -115,20 +115,20 @@ class WordPress extends Tool {
 
     // User identifier (used for distinguishing token caches)
     this.userId = fields.userId;
-    
+
     // We store credentials in separate variables to avoid them being logged or serialized
     const baseUrl = fields.WORDPRESS_BASE_URL || process.env.WORDPRESS_BASE_URL;
     const username = fields.WORDPRESS_USERNAME || process.env.WORDPRESS_USERNAME;
     const password = fields.WORDPRESS_PASSWORD || process.env.WORDPRESS_PASSWORD;
-    
+
     // Assign to private variables using Symbol to make them less accessible
     const credentialsSymbol = Symbol('credentials');
     this[credentialsSymbol] = {
       baseUrl,
-      username, 
-      password
+      username,
+      password,
     };
-    
+
     // Getter methods to access credentials safely
     this.getBaseUrl = () => this[credentialsSymbol].baseUrl;
     this.getUsername = () => this[credentialsSymbol].username;
@@ -143,7 +143,7 @@ class WordPress extends Tool {
       throw new Error('WordPress credentials or base URL are missing.');
     }
   }
-  
+
   /**
    * Overrides toJSON to prevent credentials from being serialized
    * @returns {Object} Safe representation of the class
@@ -155,10 +155,10 @@ class WordPress extends Tool {
       description: this.description,
       userId: this.userId,
       hasToken: !!this.token,
-      tokenExpiry: this.tokenExpiry
+      tokenExpiry: this.tokenExpiry,
     };
   }
-  
+
   /**
    * Gets the WordPress API endpoint URL
    * @param {string} path - The API path (without leading slash)
@@ -176,11 +176,11 @@ class WordPress extends Tool {
     if (this.token && this.tokenExpiry && now < this.tokenExpiry) {
       return this.token;
     }
-    
+
     // Get credentials safely using getters
     const username = this.getUsername();
     const password = this.getPassword();
-    
+
     try {
       const response = await fetch(this.getApiUrl('jwt-auth/v1/token'), {
         method: 'POST',
@@ -324,12 +324,12 @@ class WordPress extends Tool {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         postId, // Using camelCase as the PHP side expects this
         mediaId, // Using camelCase as the PHP side expects this
         title,
         caption,
-        altText 
+        altText,
       }),
     });
 
@@ -879,7 +879,7 @@ class WordPress extends Tool {
         wordpress_url,
         wordpress_username,
         wordpress_password,
-        
+
         // Action and other parameters
         action,
         title,
@@ -917,26 +917,26 @@ class WordPress extends Tool {
         // Store original credentials symbol reference
         const originalCredentialsSymbol = Object.getOwnPropertySymbols(this)
           .find(sym => sym.description === 'credentials');
-        const originalCredentials = originalCredentialsSymbol ? {...this[originalCredentialsSymbol]} : null;
-        
+        const originalCredentials = originalCredentialsSymbol ? { ...this[originalCredentialsSymbol] } : null;
+
         // Create a new credentials object with overrides
         const credentialsSymbol = Symbol('credentials');
         this[credentialsSymbol] = {
           baseUrl: wordpress_url || this.getBaseUrl(),
           username: wordpress_username || this.getUsername(),
-          password: wordpress_password || this.getPassword()
+          password: wordpress_password || this.getPassword(),
         };
-        
+
         // Update getters to use new credentials
         this.getBaseUrl = () => this[credentialsSymbol].baseUrl;
         this.getUsername = () => this[credentialsSymbol].username;
         this.getPassword = () => this[credentialsSymbol].password;
-        
+
         // Reset token cache so we get a new token with new credentials
         this.token = null;
         this.tokenExpiry = null;
       }
-      
+
       // Get authentication token with current credentials (original or temporary)
       const token = await this.getToken();
 
