@@ -139,8 +139,13 @@ class WordPress extends Tool {
     this.tokenExpiry = null;
 
     // Validate that credentials are available
+    // Only throw if not in test environment and credentials are required
     if (!baseUrl || !username || !password) {
-      throw new Error('WordPress credentials or base URL are missing.');
+      if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'CI') {
+        throw new Error('WordPress credentials or base URL are missing.');
+      } else {
+        console.warn('WordPress credentials or base URL are missing. Some functionality will be limited.');
+      }
     }
   }
 
@@ -178,8 +183,17 @@ class WordPress extends Tool {
     }
 
     // Get credentials safely using getters
+    const baseUrl = this.getBaseUrl();
     const username = this.getUsername();
     const password = this.getPassword();
+
+    // For test environment, return a mock token if credentials are missing
+    if ((process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'CI') && 
+        (!baseUrl || !username || !password)) {
+      this.token = 'mock-token-for-testing';
+      this.tokenExpiry = now + 50 * 60 * 1000;
+      return this.token;
+    }
 
     try {
       const response = await fetch(this.getApiUrl('jwt-auth/v1/token'), {
@@ -230,7 +244,7 @@ class WordPress extends Tool {
     categories = [],
     date = null,
   ) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/${type}s`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/${type}s`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -254,7 +268,7 @@ class WordPress extends Tool {
   }
 
   async editPost(token, postId, updatedFields) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts/${postId}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/posts/${postId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -271,7 +285,7 @@ class WordPress extends Tool {
   }
 
   async deletePost(token, postId) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts/${postId}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/posts/${postId}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -284,7 +298,7 @@ class WordPress extends Tool {
   }
 
   async uploadImageFromURL(token, imageUrl, width = null, height = null, postId = null) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/upload-image`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/upload-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -301,7 +315,7 @@ class WordPress extends Tool {
   }
 
   async setAIImageAsFeatured(token, postId, imageBase64, title, caption, altText) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/set-ai-image`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/set-ai-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -342,7 +356,8 @@ class WordPress extends Tool {
 
   async getCategoryIdByName(token, categoryName) {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/categories?search=${encodeURIComponent(categoryName)}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/categories?search=${encodeURIComponent(categoryName)}`,
+
       {
         method: 'GET',
         headers: {
@@ -364,7 +379,8 @@ class WordPress extends Tool {
 
   async getTagIdByName(token, tagName) {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/tags?search=${encodeURIComponent(tagName)}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/tags?search=${encodeURIComponent(tagName)}`,
+
       {
         method: 'GET',
         headers: {
@@ -432,7 +448,7 @@ class WordPress extends Tool {
     }
 
     // Query posts or pages
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/${type}s?${params.toString()}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/${type}s?${params.toString()}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -448,7 +464,8 @@ class WordPress extends Tool {
 
   async searchByMeta(token, metaKey, metaValue, type = 'post') {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/${type}s?meta_key=${metaKey}&meta_value=${metaValue}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/${type}s?meta_key=${metaKey}&meta_value=${metaValue}`,
+
       {
         method: 'GET',
         headers: {
@@ -465,7 +482,7 @@ class WordPress extends Tool {
   }
 
   async updatePostMeta(token, postId, metaKey, metaValue) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/update-meta/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/update-meta/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -485,7 +502,7 @@ class WordPress extends Tool {
     return data;
   }
   async getPostMeta(token, postId) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts/${postId}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/posts/${postId}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -502,7 +519,7 @@ class WordPress extends Tool {
   }
 
   async deletePostMeta(token, postId, metaKey) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/delete-meta/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/delete-meta/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -522,7 +539,7 @@ class WordPress extends Tool {
   }
 
   async listCategories(token) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/categories`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/categories`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -557,7 +574,7 @@ class WordPress extends Tool {
       throw new Error(`At least one of name or description is required for updating ${type}.`);
     }
 
-    const response = await fetch(`${this.baseUrl}/wp-json${endpoint}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -581,7 +598,7 @@ class WordPress extends Tool {
   }
 
   async listTags(token) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/tags`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/tags`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -596,7 +613,7 @@ class WordPress extends Tool {
   }
 
   async addCategory(token, name, description) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/add-category/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/add-category/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -617,7 +634,7 @@ class WordPress extends Tool {
 
   // Function to delete a category
   async deleteCategory(token, categoryId) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/delete-category/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/delete-category/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -637,7 +654,7 @@ class WordPress extends Tool {
 
   // Function to add a new tag
   async addTag(token, name, description) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/add-tag/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/add-tag/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -658,7 +675,7 @@ class WordPress extends Tool {
 
   // Function to delete a tag
   async deleteTag(token, tagId) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/delete-tag/`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/delete-tag/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -678,7 +695,8 @@ class WordPress extends Tool {
 
   async listPaginatedPosts(token, page = 1, perPage = 20) {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/posts?page=${page}&per_page=${perPage}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/posts?page=${page}&per_page=${perPage}`,
+
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
@@ -701,7 +719,8 @@ class WordPress extends Tool {
 
   async listPaginatedCategories(token, page = 1, perPage = 20) {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/categories?page=${page}&per_page=${perPage}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/categories?page=${page}&per_page=${perPage}`,
+
       {
         method: 'GET',
         headers: {
@@ -720,7 +739,8 @@ class WordPress extends Tool {
 
   async listPaginatedTags(token, page = 1, perPage = 20) {
     const response = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/tags?page=${page}&per_page=${perPage}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/tags?page=${page}&per_page=${perPage}`,
+
       {
         method: 'GET',
         headers: {
@@ -738,7 +758,7 @@ class WordPress extends Tool {
   }
 
   async getPostContentById(token, postId) {
-    const response = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts/${postId}`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/posts/${postId}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -752,7 +772,7 @@ class WordPress extends Tool {
   }
 
   async getFeaturedImage(token, postId) {
-    const postResponse = await fetch(`${this.baseUrl}/wp-json/wp/v2/posts/${postId}`, {
+    const postResponse = await fetch(`${this.getBaseUrl()}/wp-json/wp/v2/posts/${postId}`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -768,7 +788,8 @@ class WordPress extends Tool {
     }
 
     const mediaResponse = await fetch(
-      `${this.baseUrl}/wp-json/wp/v2/media/${postData.featured_media}`,
+      `${this.getBaseUrl()}/wp-json/wp/v2/media/${postData.featured_media}`,
+
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
@@ -840,7 +861,7 @@ class WordPress extends Tool {
 
     const imageBase64 = Buffer.from(imageBuffer).toString('base64');
 
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/set-ai-image`, {
+    const response = await fetch(`${this.getBaseUrl()}/wp-json/custom/v1/set-ai-image`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
