@@ -318,13 +318,19 @@ class WordPress extends Tool {
   }
 
   async updateImageMeta(token, postId = null, mediaId = null, title, caption, altText) {
-    const response = await fetch(`${this.baseUrl}/wp-json/custom/v1/update-image-meta`, {
+    const response = await fetch(this.getApiUrl('custom/v1/update-image-meta'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ postId, mediaId, title, caption, altText }),
+      body: JSON.stringify({ 
+        postId, // Using camelCase as the PHP side expects this
+        mediaId, // Using camelCase as the PHP side expects this
+        title,
+        caption,
+        altText 
+      }),
     });
 
     const data = await response.json();
