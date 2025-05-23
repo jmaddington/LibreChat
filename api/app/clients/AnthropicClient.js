@@ -70,7 +70,7 @@ class AnthropicClient extends BaseClient {
     this.message_delta;
     /** Whether the model is part of the Claude 3 Family
      * @type {boolean} */
-    this.isClaude3;
+    this.isClaudeLatest;
     /** Whether to use Messages API or Completions API
      * @type {boolean} */
     this.useMessages;
@@ -116,7 +116,8 @@ class AnthropicClient extends BaseClient {
     );
 
     const modelMatch = matchModelName(this.modelOptions.model, EModelEndpoint.anthropic);
-    this.isClaude3 = modelMatch.includes('claude-3');
+    this.isClaudeLatest =
+      /claude-[3-9]/.test(modelMatch) || /claude-(?:sonnet|opus|haiku)-[4-9]/.test(modelMatch);
     this.isLegacyOutput = !(
       /claude-3[-.]5-sonnet/.test(modelMatch) || /claude-3[-.]7/.test(modelMatch)
     );
@@ -130,7 +131,7 @@ class AnthropicClient extends BaseClient {
       this.modelOptions.maxOutputTokens = legacy.maxOutputTokens.default;
     }
 
-    this.useMessages = this.isClaude3 || !!this.options.attachments;
+    this.useMessages = this.isClaudeLatest || !!this.options.attachments;
 
     this.defaultVisionModel = this.options.visionModel ?? 'claude-3-sonnet-20240229';
     this.options.attachments?.then((attachments) => this.checkVisionRequest(attachments));
@@ -396,13 +397,13 @@ class AnthropicClient extends BaseClient {
     const formattedMessages = orderedMessages.map((message, i) => {
       const formattedMessage = this.useMessages
         ? formatMessage({
-          message,
-          endpoint: EModelEndpoint.anthropic,
-        })
+            message,
+            endpoint: EModelEndpoint.anthropic,
+          })
         : {
-          author: message.isCreatedByUser ? this.userLabel : this.assistantLabel,
-          content: message?.content ?? message.text,
-        };
+            author: message.isCreatedByUser ? this.userLabel : this.assistantLabel,
+            content: message?.content ?? message.text,
+          };
 
       const needsTokenCount = this.contextStrategy && !orderedMessages[i].tokenCount;
       /* If tokens were never counted, or, is a Vision request and the message has files, count again */
@@ -416,6 +417,9 @@ class AnthropicClient extends BaseClient {
         for (const file of attachments) {
           if (file.embedded) {
             this.contextHandlers?.processFile(file);
+            continue;
+          }
+          if (file.metadata?.fileIdentifier) {
             continue;
           }
 
@@ -651,7 +655,10 @@ class AnthropicClient extends BaseClient {
       );
     };
 
-    if (this.modelOptions.model.includes('claude-3')) {
+    if (
+      /claude-[3-9]/.test(this.modelOptions.model) ||
+      /claude-(?:sonnet|opus|haiku)-[4-9]/.test(this.modelOptions.model)
+    ) {
       await buildMessagesPayload();
       processTokens();
       return {
@@ -677,7 +684,7 @@ class AnthropicClient extends BaseClient {
   }
 
   getCompletion() {
-    logger.debug('AnthropicClient doesn\'t use getCompletion (all handled in sendCompletion)');
+    logger.debug("AnthropicClient doesn't use getCompletion (all handled in sendCompletion)");
   }
 
   /**
@@ -885,7 +892,7 @@ class AnthropicClient extends BaseClient {
   }
 
   getBuildMessagesOptions() {
-    logger.debug('AnthropicClient doesn\'t use getBuildMessagesOptions');
+    logger.debug("AnthropicClient doesn't use getBuildMessagesOptions");
   }
 
   getEncoding() {

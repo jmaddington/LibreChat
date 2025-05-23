@@ -1,6 +1,6 @@
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useGetModelsQuery } from 'librechat-data-provider/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   Constants,
   FileSources,
@@ -22,20 +22,20 @@ import {
   getEndpointField,
   buildDefaultConvo,
   getDefaultEndpoint,
+  getModelSpecPreset,
   getDefaultModelSpec,
-  getModelSpecIconURL,
   updateLastSelectedModel,
 } from '~/utils';
 import { useDeleteFilesMutation, useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
 import useAssistantListMap from './Assistants/useAssistantListMap';
 import { useResetChatBadges } from './useChatBadges';
 import { usePauseGlobalAudio } from './Audio';
-import { mainTextareaId } from '~/common';
 import { logger } from '~/utils';
 import store from '~/store';
 
 const useNewConvo = (index = 0) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: startupConfig } = useGetStartupConfig();
   const clearAllConversations = store.useClearConvoState();
   const defaultPreset = useRecoilValue(store.defaultPreset);
@@ -47,7 +47,6 @@ const useNewConvo = (index = 0) => {
   const { data: endpointsConfig = {} as TEndpointsConfig } = useGetEndpointsQuery();
 
   const modelsQuery = useGetModelsQuery();
-  const timeoutIdRef = useRef<NodeJS.Timeout>();
   const assistantsListMap = useAssistantListMap();
   const { pauseGlobalAudio } = usePauseGlobalAudio(index);
   const saveDrafts = useRecoilValue<boolean>(store.saveDrafts);
@@ -72,6 +71,7 @@ const useNewConvo = (index = 0) => {
         keepLatestMessage?: boolean,
         keepAddedConvos?: boolean,
         disableFocus?: boolean,
+        _disableParams?: boolean,
       ) => {
         const modelsConfig = modelsData ?? modelsQuery.data;
         const { endpoint = null } = conversation;
@@ -87,6 +87,12 @@ const useNewConvo = (index = 0) => {
           buildDefaultConversation
             ? defaultPreset
             : preset;
+
+        const disableParams =
+          _disableParams ??
+          (activePreset?.presetId != null &&
+            activePreset.presetId &&
+            activePreset.presetId === defaultPreset?.presetId);
 
         if (buildDefaultConversation) {
           let defaultEndpoint = getDefaultEndpoint({
@@ -149,34 +155,54 @@ const useNewConvo = (index = 0) => {
           });
         }
 
+        if (disableParams === true) {
+          conversation.disableParams = true;
+        }
+
         if (!(keepAddedConvos ?? false)) {
           clearAllConversations(true);
         }
-        logger.log('conversation', 'Setting conversation from `useNewConvo`', conversation);
-        setConversation(conversation);
+        const isCancelled = conversation.conversationId?.startsWith('_');
+        if (isCancelled) {
+          logger.log(
+            'conversation',
+            'Cancelled conversation, setting to `new` in `useNewConvo`',
+            conversation,
+          );
+          setConversation({
+            ...conversation,
+            conversationId: Constants.NEW_CONVO as string,
+          });
+        } else {
+          logger.log('conversation', 'Setting conversation from `useNewConvo`', conversation);
+          setConversation(conversation);
+        }
         setSubmission({} as TSubmission);
         if (!(keepLatestMessage ?? false)) {
           clearAllLatestMessages();
         }
+        if (isCancelled) {
+          return;
+        }
+
+        const searchParamsString = searchParams?.toString();
+        const getParams = () => (searchParamsString ? `?${searchParamsString}` : '');
 
         if (conversation.conversationId === Constants.NEW_CONVO && !modelsData) {
           const appTitle = localStorage.getItem(LocalStorageKeys.APP_TITLE) ?? '';
           if (appTitle) {
             document.title = appTitle;
           }
-          navigate(`/c/${Constants.NEW_CONVO}`);
-        }
-
-        clearTimeout(timeoutIdRef.current);
-        if (disableFocus === true) {
+          const path = `/c/${Constants.NEW_CONVO}${getParams()}`;
+          navigate(path, { state: { focusChat: true } });
           return;
         }
-        timeoutIdRef.current = setTimeout(() => {
-          const textarea = document.getElementById(mainTextareaId);
-          if (textarea) {
-            textarea.focus();
-          }
-        }, 150);
+
+        const path = `/c/${conversation.conversationId}${getParams()}`;
+        navigate(path, {
+          replace: true,
+          state: disableFocus ? {} : { focusChat: true },
+        });
       },
     [endpointsConfig, defaultPreset, assistantsListMap, modelsQuery.data],
   );
@@ -190,6 +216,7 @@ const useNewConvo = (index = 0) => {
       buildDefault = true,
       keepLatestMessage = false,
       keepAddedConvos = false,
+      disableParams,
     }: {
       template?: Partial<TConversation>;
       preset?: Partial<TPreset>;
@@ -198,6 +225,7 @@ const useNewConvo = (index = 0) => {
       disableFocus?: boolean;
       keepLatestMessage?: boolean;
       keepAddedConvos?: boolean;
+      disableParams?: boolean;
     } = {}) {
       pauseGlobalAudio();
       if (!saveBadgesState) {
@@ -231,11 +259,7 @@ const useNewConvo = (index = 0) => {
           (startupConfig.interface?.modelSelect ?? true) !== true) &&
         defaultModelSpec
       ) {
-        preset = {
-          ...defaultModelSpec.preset,
-          iconURL: getModelSpecIconURL(defaultModelSpec),
-          spec: defaultModelSpec.name,
-        } as TConversation;
+        preset = getModelSpecPreset(defaultModelSpec);
       }
 
       if (conversation.conversationId === 'new' && !modelsData) {
@@ -271,17 +295,19 @@ const useNewConvo = (index = 0) => {
         keepLatestMessage,
         keepAddedConvos,
         disableFocus,
+        disableParams,
       );
     },
     [
-      pauseGlobalAudio,
-      startupConfig,
-      saveDrafts,
-      switchToConversation,
       files,
       setFiles,
+      saveDrafts,
       mutateAsync,
       resetBadges,
+      startupConfig,
+      saveBadgesState,
+      pauseGlobalAudio,
+      switchToConversation,
     ],
   );
 

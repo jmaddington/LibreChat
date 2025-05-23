@@ -1,5 +1,6 @@
 const { z } = require('zod');
 const { tool } = require('@langchain/core/tools');
+const { normalizeServerName } = require('librechat-mcp');
 const { Constants: AgentConstants, Providers } = require('@librechat/agents');
 const {
   Constants,
@@ -19,7 +20,7 @@ const { logger, getMCPManager } = require('~/config');
  * @param {string} params.model - The model for the tool.
  * @returns { Promise<typeof tool | { _call: (toolInput: Object | string) => unknown}> } An object with `_call` method to execute the tool input.
  */
-async function createMCPTool({ req, toolKey, provider }) {
+async function createMCPTool({ req, toolKey, provider: _provider }) {
   const toolDefinition = req.app.locals.availableTools[toolKey]?.function;
   if (!toolDefinition) {
     logger.error(`Tool ${toolKey} not found in available tools`);
@@ -27,9 +28,10 @@ async function createMCPTool({ req, toolKey, provider }) {
   }
   /** @type {LCTool} */
   const { description, parameters } = toolDefinition;
-  const isGoogle = provider === Providers.VERTEXAI || provider === Providers.GOOGLE;
+  const isGoogle = _provider === Providers.VERTEXAI || _provider === Providers.GOOGLE;
   let schema = convertJsonSchemaToZod(parameters, {
     allowEmptyObject: !isGoogle,
+    transformOneOfAnyOf: true,
   });
 
   if (!schema) {
@@ -37,6 +39,7 @@ async function createMCPTool({ req, toolKey, provider }) {
   }
 
   const [toolName, serverName] = toolKey.split(Constants.mcp_delimiter);
+  const normalizedToolKey = `${toolName}${Constants.mcp_delimiter}${normalizeServerName(serverName)}`;
 
   if (!req.user?.id) {
     logger.error(
@@ -49,7 +52,8 @@ async function createMCPTool({ req, toolKey, provider }) {
   const _call = async (toolArguments, config) => {
     try {
       const derivedSignal = config?.signal ? AbortSignal.any([config.signal]) : undefined;
-      const mcpManager = getMCPManager(config?.userId);
+      const mcpManager = getMCPManager(config?.configurable?.user_id);
+      const provider = (config?.metadata?.provider || _provider)?.toLowerCase();
       const result = await mcpManager.callTool({
         serverName,
         toolName,
@@ -70,7 +74,7 @@ async function createMCPTool({ req, toolKey, provider }) {
       return result;
     } catch (error) {
       logger.error(
-        `[MCP][User: ${config?.userId}][${serverName}] Error calling "${toolName}" MCP tool:`,
+        `[MCP][User: ${config?.configurable?.user_id}][${serverName}] Error calling "${toolName}" MCP tool:`,
         error,
       );
       throw new Error(
@@ -81,7 +85,7 @@ async function createMCPTool({ req, toolKey, provider }) {
 
   const toolInstance = tool(_call, {
     schema,
-    name: toolKey,
+    name: normalizedToolKey,
     description: description || '',
     responseFormat: AgentConstants.CONTENT_AND_ARTIFACT,
   });
