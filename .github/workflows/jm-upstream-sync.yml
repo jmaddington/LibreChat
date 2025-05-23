@@ -7,38 +7,19 @@ on:
   
   # Allow manual triggering
   workflow_dispatch:
-    inputs:
-      source_branch:
-        description: 'Branch to run the sync from (default: the branch where the workflow is defined)'
-        required: false
-        default: ''
-      target_branch:
-        description: 'Branch to push the synced content to'
-        required: false
-        default: 'main-upstream'
 
-# Add permissions required for workflow file updates
 permissions:
   contents: write
-  workflows: write
+  workflows: write  # Add this line for workflows permission
 
 jobs:
   upstream-sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Determine target branch
-        id: set-branch
-        run: |
-          TARGET_BRANCH="${{ github.event.inputs.target_branch }}"
-          if [ -z "$TARGET_BRANCH" ]; then
-            TARGET_BRANCH="main-upstream"
-          fi
-          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
-      
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.set-branch.outputs.target_branch }}
+          ref: main-upstream
       
       - name: Configure Git
         run: |
@@ -50,4 +31,4 @@ jobs:
           git remote add upstream https://github.com/danny-avila/LibreChat.git
           git fetch upstream main
           git reset --hard upstream/main
-          git push --force origin ${{ steps.set-branch.outputs.target_branch }}
+          git push --force origin main-upstream
