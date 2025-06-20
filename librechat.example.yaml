@@ -128,6 +128,28 @@ actions:
     - "librechat.ai"
     - "google.com"
 
+# Tools configuration
+# This section allows for configuring various tools that can be used by agents or other parts of the system.
+tools:
+  # WebNavigator tool configuration
+  # This tool allows agents to navigate websites, fetch content, and interact with web pages.
+  webNavigator:
+    # Whitelist: A list of URL patterns that the WebNavigator is allowed to access.
+    # Supports glob patterns for flexible matching (e.g., "*.example.com", "sub.domain.tld").
+    whitelist:
+      - "*.example.com"
+      - "anothersite.org"
+    # Blacklist: A list of URL patterns that the WebNavigator is explicitly forbidden to access.
+    # Supports glob patterns. Blacklist rules override whitelist rules.
+    blacklist:
+      - "restricted.com"
+      - "*.forbidden.net"
+    # AllowedMethods: A list of HTTP methods that the WebNavigator is allowed to use.
+    # Common methods include "GET", "POST", "PUT", "DELETE".
+    allowedMethods:
+      - "GET"
+      - "POST"
+
 # Example MCP Servers Object Structure
 # mcpServers:
 #   everything:

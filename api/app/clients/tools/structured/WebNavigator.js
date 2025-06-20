@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const { URL, URLSearchParams } = require('url');
 const cheerio = require('cheerio');
 const crypto = require('crypto');
+const loadYaml = require('../../../../utils/loadYaml');
 
 // Try to load better-sqlite3, but don't fail if it's not available
 let Database;
@@ -25,15 +26,49 @@ class WebNavigator extends Tool {
     this.firecrawlApiUrl = _fields.FIRECRAWL_API_URL || process.env.FIRECRAWL_API_URL || 'https://api.firecrawl.dev';
     this.useFirecrawl = this.firecrawlApiKey && (process.env.WEB_NAVIGATOR_USE_FIRECRAWL !== 'false');
 
+    // Load configuration from librechat.yaml
+    const configPath = path.resolve(__dirname, '../../../../../librechat.yaml');
+    const config = loadYaml(configPath);
+
+    if (config && !config.error) {
+      const webNavigatorConfig = config.tools?.webNavigator;
+      this.whitelist = webNavigatorConfig?.whitelist || [];
+      this.blacklist = webNavigatorConfig?.blacklist || [];
+
+      // Load and standardize allowedMethods to uppercase. Default to ['GET']
+      let methods = ['GET']; // Default value
+      if (webNavigatorConfig?.allowedMethods && webNavigatorConfig.allowedMethods.length > 0) {
+        methods = webNavigatorConfig.allowedMethods.map(m => String(m).toUpperCase());
+      }
+      this.allowedMethods = methods;
+
+    } else {
+      // Defaults if config is missing or malformed
+      this.whitelist = [];
+      this.blacklist = [];
+      this.allowedMethods = ['GET']; // Default value
+      if (config && config.error) {
+        console.warn('Error loading librechat.yaml for WebNavigator, using defaults:', config.error.message);
+      } else {
+        console.warn('librechat.yaml not found or empty for WebNavigator, using defaults.');
+      }
+    }
+
     this.name = 'WebNavigator';
     this.description =
       'Simulates a curl action. Useful for making HTTP requests with various methods and parameters. Accepts an array of commands similar to curl.';
     this.description_for_model =
       `Simulates a curl action by making HTTP requests with various methods and parameters. Accepts input similar to curl commands.
-      
-      The tool now uses a local cache to store successful responses (2xx status codes) for 15 minutes to improve performance and reduce network traffic.
-      Failed requests (non-2xx status codes) are not cached to ensure fresh attempts on retry.
-      To bypass the cache and force a fresh request, use the "bypassCache: true" parameter.
+
+      **IMPORTANT SYSTEM-LEVEL CONFIGURATION:**
+      - This tool operates under system-wide URL access restrictions (whitelist/blacklist) and HTTP method limitations (allowedMethods).
+      - These are configured in the 'librechat.yaml' file by the system administrator and cannot be overridden by the input parameters.
+      - Access to URLs will be denied if they do not comply with these server-side policies. For example, a URL might be denied if it's not on the whitelist or if it's on the blacklist. Similarly, an HTTP method like 'DELETE' might be denied if it's not in the server's list of allowed methods.
+
+      **Caching:**
+      - The tool uses a local cache to store successful responses (2xx status codes) for 15 minutes to improve performance and reduce network traffic.
+      - Failed requests (non-2xx status codes) are not cached to ensure fresh attempts on retry.
+      - To bypass the cache and force a fresh request, use the "bypassCache: true" parameter.
 
       Guidelines:
       - **Default Behavior:** By default, the response will:
@@ -292,6 +327,63 @@ class WebNavigator extends Tool {
       );
     } catch (error) {
       console.error('Error storing in cache:', error);
+    }
+  }
+
+  /**
+   * Checks if a given URL's domain is allowed based on whitelist and blacklist rules.
+   * @param {string} urlString The URL to check.
+   * @param {string[]} whitelist An array of whitelisted domain patterns.
+   * @param {string[]} blacklist An array of blacklisted domain patterns.
+   * @returns {boolean} True if the domain is allowed, false otherwise.
+   */
+  isDomainAllowed(urlString, whitelist, blacklist) {
+    try {
+      const url = new URL(urlString);
+      const hostname = url.hostname.toLowerCase();
+
+      // Check blacklist first
+      for (const pattern of blacklist) {
+        const normalizedPattern = pattern.toLowerCase();
+        if (normalizedPattern.startsWith('*.')) {
+          // Wildcard match (e.g., *.example.com)
+          if (hostname.endsWith(normalizedPattern.substring(1)) || hostname === normalizedPattern.substring(2)) {
+            return false; // Blacklisted
+          }
+        } else {
+          // Exact match (e.g., example.com)
+          if (hostname === normalizedPattern) {
+            return false; // Blacklisted
+          }
+        }
+      }
+
+      // If whitelist is empty, allow (unless blacklisted)
+      if (!whitelist || whitelist.length === 0) {
+        return true;
+      }
+
+      // Check whitelist
+      for (const pattern of whitelist) {
+        const normalizedPattern = pattern.toLowerCase();
+        if (normalizedPattern.startsWith('*.')) {
+          // Wildcard match
+          if (hostname.endsWith(normalizedPattern.substring(1)) || hostname === normalizedPattern.substring(2)) {
+            return true; // Whitelisted
+          }
+        } else {
+          // Exact match
+          if (hostname === normalizedPattern) {
+            return true; // Whitelisted
+          }
+        }
+      }
+
+      return false; // Not in whitelist (and whitelist is not empty)
+    } catch (e) {
+      // Invalid URL, treat as not allowed
+      console.error(`Invalid URL for domain check: ${urlString}`, e);
+      return false;
     }
   }
 
@@ -601,6 +693,24 @@ TIPS:
       throw new Error('URL is required.');
     }
 
+    // Build the full URL with query parameters early to use for checks
+    const urlObject = new URL(url);
+    if (params && Object.keys(params).length > 0) {
+      urlObject.search = new URLSearchParams(params).toString();
+    }
+    const fullUrl = urlObject.toString();
+
+    // **Enforce whitelist/blacklist restrictions**
+    if (!this.isDomainAllowed(fullUrl, this.whitelist, this.blacklist)) {
+      throw new Error('URL is not allowed by whitelist/blacklist policy.');
+    }
+
+    // **Enforce allowed HTTP methods**
+    const requestMethodUpper = method.toUpperCase();
+    if (!this.allowedMethods.includes(requestMethodUpper)) {
+      throw new Error(`HTTP method '${requestMethodUpper}' is not allowed. Allowed methods are: ${this.allowedMethods.join(', ')}.`);
+    }
+
     // Define default browser headers for each impersonation option
     const browserHeadersMap = {
       plain: {},
@@ -633,19 +743,14 @@ TIPS:
     // Determine the default headers based on browser impersonation
     const browserHeaders = browserHeadersMap[browserImpersonation] || {};
 
-    // Build the full URL with query parameters
-    const urlObject = new URL(url);
-    if (params && Object.keys(params).length > 0) {
-      urlObject.search = new URLSearchParams(params).toString();
-    }
-    const fullUrl = urlObject.toString();
-
     // Check if client explicitly requested Firecrawl but it's not configured
     if (input.useFirecrawl === true && !this.firecrawlApiKey) {
       throw new Error('Firecrawl was requested but no FIRECRAWL_API_KEY is configured. Either provide the API key or set useFirecrawl to false.');
     }
 
     // Check cache if not bypassing
+    // Note: cacheKey uses the original 'url' not 'fullUrl' for consistency if params change but base URL is same.
+    // However, for policy check, 'fullUrl' is more appropriate.
     const cacheKey = !bypassCache && this.db ? this.generateCacheKey(method, url, params, data) : null;
     let cachedResult = null;
 
@@ -848,16 +953,22 @@ TIPS:
             href &&
             !href.startsWith('mailto:') &&
             !href.startsWith('tel:') &&
-            !/\.(png|jpg|jpeg|gif|bmp|tiff|ico|svg|pdf)$/i.test(href)
+            !/\.(png|jpg|jpeg|gif|bmp|tiff|ico|svg|pdf)$/i.test(href),
         );
 
       for (const link of resourceLinks) {
         try {
           const absoluteUrl = new URL(link, urlObject).toString();
+          // **Also check fetched related resources against the domain whitelist/blacklist**
+          if (!this.isDomainAllowed(absoluteUrl, this.whitelist, this.blacklist)) {
+            console.warn(`Skipping related resource: ${absoluteUrl} due to whitelist/blacklist policy.`);
+            continue;
+          }
           const resourceResult = await processRequest(absoluteUrl);
           relatedResources.push(resourceResult);
         } catch (error) {
           // Ignore errors for individual resources
+          console.error(`Error fetching related resource ${link}:`, error.message);
         }
       }
     }
