@@ -46,11 +46,11 @@ class ProjectRepo extends Tool {
   async initializeDatabase() {
     try {
       this.pool = new Pool({
-        host: process.env.PG_HOST || 'vectordb',
-        port: process.env.PG_PORT || 5432,
-        database: process.env.PG_DB || 'mydatabase',
-        user: process.env.PG_USER || 'myuser',
-        password: process.env.PG_PASSWORD || 'mypassword',
+        host: process.env.POSTGRES_HOST || 'vectordb',
+        port: process.env.POSTGRES_PORT || 5432,
+        database: process.env.POSTGRES_DB || 'mydatabase',
+        user: process.env.POSTGRES_USER || 'myuser',
+        password: process.env.POSTGRES_PASSWORD || 'mypassword',
       });
 
       // Test connection and create tables if needed
