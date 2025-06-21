@@ -9,6 +9,7 @@
     "name": "User Memory",
     "pluginKey": "user_memory_mongo",
     "description": "Manage user memories and associated tags across conversations",
+    "icon": "/assets/usermemory.png",
     "authConfig": []
   },
   {
