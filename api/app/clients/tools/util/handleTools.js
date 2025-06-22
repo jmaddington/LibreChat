@@ -17,6 +17,8 @@ const {
   // Structured Tools
   DALLE3,
   FluxAPI,
+  GoogleImageGen,
+  GoogleImageEdit,
   OpenWeather,
   StructuredSD,
   StructuredACS,
@@ -157,6 +159,8 @@ const loadTools = async ({
 }) => {
   const toolConstructors = {
     flux: FluxAPI,
+    google_image_gen: GoogleImageGen,
+    google_image_edit: GoogleImageEdit,
     calculator: Calculator,
     google: GoogleSearchAPI,
     open_weather: OpenWeather,
@@ -172,6 +176,7 @@ const loadTools = async ({
     wordpress: WordPress,
     project_memory: ProjectRepo,
     user_memory_mongo: UserMemoryMongo,
+    collections: Collections,
   };
 
   const customConstructors = {
@@ -243,6 +248,15 @@ const loadTools = async ({
   const toolOptions = {
     flux: imageGenOptions,
     dalle: imageGenOptions,
+    google_image_gen: {
+      ...imageGenOptions,
+      req: options.req
+    },
+    google_image_edit: {
+      ...imageGenOptions,
+      req: options.req,
+      imageFiles: options?.tool_resources?.[EToolResources.image_edit]?.files ?? []
+    },
     'stable-diffusion': imageGenOptions,
     serpapi: { location: 'Austin,Texas,United States', hl: 'en', gl: 'us' },
   };

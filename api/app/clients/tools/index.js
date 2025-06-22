@@ -3,6 +3,8 @@ const availableTools = require('./manifest.json');
 // Structured Tools
 const DALLE3 = require('./structured/DALLE3');
 const FluxAPI = require('./structured/FluxAPI');
+const GoogleImageGen = require('./structured/GoogleImageGen');
+const GoogleImageEdit = require('./structured/GoogleImageEdit');
 const OpenWeather = require('./structured/OpenWeather');
 const StructuredWolfram = require('./structured/Wolfram');
 const createYouTubeTools = require('./structured/YouTube');
@@ -19,6 +21,7 @@ const Quickchart = require('./structured/Quickchart');
 const WordPress = require('./structured/WordPress');
 const UserMemoryMongo = require('./structured/UserMemoryMongo');
 const ProjectRepo = require('./structured/ProjectRepo');
+const Collections = require('./structured/Collections');
 
 /** @type {Record<string, TPlugin | undefined>} */
 const manifestToolMap = {};
@@ -40,6 +43,8 @@ module.exports = {
   // Structured Tools
   DALLE3,
   FluxAPI,
+  GoogleImageGen,
+  GoogleImageEdit,
   OpenWeather,
   StructuredSD,
   StructuredACS,
@@ -56,4 +61,5 @@ module.exports = {
   WordPress,
   UserMemoryMongo,
   ProjectRepo,
+  Collections,
 };

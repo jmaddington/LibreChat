@@ -1,5 +1,39 @@
 [
   {
+    "name": "Collections",
+    "pluginKey": "collections",
+    "description": "Store and retrieve organized knowledge in hierarchical collections with parent-child relationships",
+    "authConfig": []
+  },
+  {
+    "name": "Google Image Generation",
+    "pluginKey": "google_image_gen",
+    "description": "Generate high-quality images from text descriptions using Google's Imagen 3 and Gemini models",
+    "icon": "/assets/google.svg",
+    "isAuthRequired": "true",
+    "authConfig": [
+      {
+        "authField": "GOOGLE_IMAGEN_API_KEY",
+        "label": "Google API Key",
+        "description": "Your Google API key with access to Imagen or Gemini image generation models."
+      }
+    ]
+  },
+  {
+    "name": "Google Image Editing",
+    "pluginKey": "google_image_edit",
+    "description": "Edit and transform existing images using Google's Imagen models",
+    "icon": "/assets/google.svg",
+    "isAuthRequired": "true",
+    "authConfig": [
+      {
+        "authField": "GOOGLE_IMAGEN_API_KEY",
+        "label": "Google API Key",
+        "description": "Your Google API key with access to Imagen image editing models."
+      }
+    ]
+  },
+  {
     "name": "Project Memory",
     "pluginKey": "project_memory",
     "description": "Store and retrieve project-specific knowledge snippets for long-running research",
