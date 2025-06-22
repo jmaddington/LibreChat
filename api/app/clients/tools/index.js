@@ -20,7 +20,6 @@ const TimeAPI = require('./structured/TimeAPI');
 const Quickchart = require('./structured/Quickchart');
 const WordPress = require('./structured/WordPress');
 const UserMemoryMongo = require('./structured/UserMemoryMongo');
-const ProjectRepo = require('./structured/ProjectRepo');
 const Collections = require('./structured/Collections');
 
 /** @type {Record<string, TPlugin | undefined>} */
@@ -60,6 +59,5 @@ module.exports = {
   Quickchart,
   WordPress,
   UserMemoryMongo,
-  ProjectRepo,
   Collections,
 };

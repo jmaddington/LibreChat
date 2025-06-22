@@ -34,12 +34,6 @@
     ]
   },
   {
-    "name": "Project Memory",
-    "pluginKey": "project_memory",
-    "description": "Store and retrieve project-specific knowledge snippets for long-running research",
-    "authConfig": []
-  },
-  {
     "name": "User Memory",
     "pluginKey": "user_memory_mongo",
     "description": "Manage user memories and associated tags across conversations",
