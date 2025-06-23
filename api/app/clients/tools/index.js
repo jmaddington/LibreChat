@@ -17,6 +17,7 @@ const E2BCode = require('./structured/E2BCode');
 const TimeAPI = require('./structured/TimeAPI');
 const Quickchart = require('./structured/Quickchart');
 const WordPress = require('./structured/WordPress');
+const QuickLCMemory = require('./structured/QuickLCMemory');
 
 /** @type {Record<string, TPlugin | undefined>} */
 const manifestToolMap = {};
@@ -52,4 +53,5 @@ module.exports = {
   TimeAPI,
   Quickchart,
   WordPress,
+  QuickLCMemory,
 };
