@@ -846,6 +846,15 @@ class Collections extends Tool {
 
       const note = noteResult.rows[0];
 
+      // Add this check:
+      if (!note || !note.id) {
+        logger.error('Failed to create note or retrieve note ID after insertion.', {
+          collectionId,
+          title,
+        });
+        throw new Error('Failed to create note or retrieve its ID. Note vector not created.');
+      }
+
       // Generate and store embedding
       const embedding = await this.generateEmbedding(`${title}\n\n${content}`);
       if (embedding) {
@@ -923,6 +932,18 @@ class Collections extends Tool {
           );
 
           const note = noteResult.rows[0];
+
+          // Add this check:
+          if (!note || !note.id) {
+            logger.error('Failed to create note or retrieve note ID during bulk operation.', {
+              collectionId,
+              title: noteData.title,
+            });
+            // This will be caught by the existing catch (noteError) block
+            throw new Error(
+              'Failed to create note or retrieve its ID in bulk. Note vector not created.',
+            );
+          }
 
           // Generate and store embedding
           const embedding = await this.generateEmbedding(
