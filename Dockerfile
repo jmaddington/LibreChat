@@ -37,6 +37,9 @@ RUN \
 
 RUN mkdir -p /app/client/public/images /app/api/logs
 
+# MCP Servers setup
+RUN npm install -g firecrawl-mcp mcp-server-time
+
 # Node API setup
 EXPOSE 3080
 ENV HOST=0.0.0.0
