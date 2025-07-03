@@ -86,6 +86,8 @@ export const deleteConversation = () => `${conversationsRoot}`;
 
 export const deleteAllConversation = () => `${conversationsRoot}/all`;
 
+export const pinConversation = () => `${conversationsRoot}/pin`;
+
 export const importConversation = () => `${conversationsRoot}/import`;
 
 export const forkConversation = () => `${conversationsRoot}/fork`;

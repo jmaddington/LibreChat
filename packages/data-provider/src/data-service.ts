@@ -599,6 +599,12 @@ export function genTitle(payload: m.TGenTitleRequest): Promise<m.TGenTitleRespon
   return request.post(endpoints.genTitle(), payload);
 }
 
+export function pinConversation(
+  payload: { conversationId: string; isPinned: boolean },
+): Promise<s.TConversation> {
+  return request.post(endpoints.pinConversation(), payload);
+}
+
 export const listMessages = (params?: q.MessagesListParams): Promise<q.MessagesListResponse> => {
   return request.get(endpoints.messages(params ?? {}));
 };
