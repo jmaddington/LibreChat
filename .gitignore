@@ -134,3 +134,4 @@ wordpress/*
 *.cert
 .devcontainer/.claude/*
 .devcontainer/datae/*
+.devcontainer/data/*
