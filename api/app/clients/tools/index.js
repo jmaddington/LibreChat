@@ -12,6 +12,8 @@ const GoogleSearchAPI = require('./structured/GoogleSearch');
 const TraversaalSearch = require('./structured/TraversaalSearch');
 const createOpenAIImageTools = require('./structured/OpenAIImageTools');
 const TavilySearchResults = require('./structured/TavilySearchResults');
+const Collections = require('./structured/Collections');
+const CollectionExport = require('./structured/CollectionExport');
 
 /** @type {Record<string, TPlugin | undefined>} */
 const manifestToolMap = {};
@@ -42,4 +44,6 @@ module.exports = {
   createYouTubeTools,
   TavilySearchResults,
   createOpenAIImageTools,
+  Collections,
+  CollectionExport,
 };
