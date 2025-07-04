@@ -132,3 +132,5 @@ wordpress/*
 .claude/*
 # SAML Idp cert
 *.cert
+.devcontainer/.claude/*
+.devcontainer/datae/*

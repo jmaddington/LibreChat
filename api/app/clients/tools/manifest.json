@@ -203,7 +203,7 @@
   {
     "name": "WebNavigator",
     "pluginKey": "WebNavigator",
-    "description": "WebNavigator",
+    "description": "Navigate the web with advanced browsing capabilities and optional Firecrawl integration",
     "icon": "/assets/webnavigator.png",
     "isAuthRequired": "false",
     "authConfig": []
@@ -214,7 +214,13 @@
     "description": "Run code in an E2B sandbox",
     "icon": "/assets/e2b_symbol.png",
     "isAuthRequired": "true",
-    "authConfig": []
+    "authConfig": [
+      {
+        "authField": "E2B_API_KEY",
+        "label": "E2B.dev API key",
+        "description": "API Key from the e2b.dev dashboard"
+      }
+    ]
   },
   {
     "name": "QuickChart",
@@ -245,5 +251,26 @@
         "description": "Your WordPress password or application password"
       }
     ]
+  },
+  {
+    "name": "Collections",
+    "pluginKey": "collections",
+    "description": "Store and retrieve organized knowledge in collections with hierarchical structure. Supports keyword, semantic, and hybrid search across all notes.",
+    "icon": "/assets/collections-tree.png",
+    "authConfig": []
+  },
+  {
+    "name": "Collection Export",
+    "pluginKey": "collection_export",
+    "description": "Export LibreChat collections in various formats (JSON, XML, PDF). Can export single collections or recursively include child collections.",
+    "icon": "/assets/collection-trees-export.png",
+    "authConfig": []
+  },
+  {
+    "name": "QuickLC Memory",
+    "pluginKey": "quick_lc_memory",
+    "description": "Quick access to LibreChat user memories for persistent storage across conversations",
+    "icon": "/assets/quicklcmemory.png",
+    "authConfig": []
   }
 ]

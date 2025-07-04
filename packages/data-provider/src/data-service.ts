@@ -11,14 +11,6 @@ import request from './request';
 import * as s from './schemas';
 import * as r from './roles';
 
-export function abortRequestWithMessage(
-  endpoint: string,
-  abortKey: string,
-  message: string,
-): Promise<void> {
-  return request.post(endpoints.abortRequest(endpoint), { arg: { abortKey, message } });
-}
-
 export function revokeUserKey(name: string): Promise<unknown> {
   return request.delete(endpoints.revokeUserKey(name));
 }
@@ -595,6 +587,12 @@ export function updateConversation(
   payload: t.TUpdateConversationRequest,
 ): Promise<t.TUpdateConversationResponse> {
   return request.post(endpoints.updateConversation(), { arg: payload });
+}
+
+export function pinConversation(
+  payload: { conversationId: string; isPinned: boolean },
+): Promise<s.TConversation> {
+  return request.post(endpoints.pinConversation(), payload);
 }
 
 export function archiveConversation(

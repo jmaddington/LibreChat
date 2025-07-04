@@ -37,6 +37,7 @@ export interface IConversation extends Document {
   instructions?: string;
   stop?: string[];
   isArchived?: boolean;
+  isPinned?: boolean;
   iconURL?: string;
   greeting?: string;
   spec?: string;
@@ -45,6 +46,9 @@ export interface IConversation extends Document {
   maxContextTokens?: number;
   max_tokens?: number;
   reasoning_effort?: string;
+  reasoning_summary?: string;
+  useResponsesApi?: boolean;
+  grounding?: boolean;
   // Additional fields
   files?: string[];
   expiredAt?: Date;

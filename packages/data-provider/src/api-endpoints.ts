@@ -70,8 +70,6 @@ export const revokeUserKey = (name: string) => `${keysEndpoint}/${name}`;
 
 export const revokeAllUserKeys = () => `${keysEndpoint}?all=true`;
 
-export const abortRequest = (endpoint: string) => `/api/ask/${endpoint}/abort`;
-
 export const conversationsRoot = '/api/convos';
 
 export const conversations = (params: q.ConversationListParams) => {
@@ -83,6 +81,8 @@ export const conversationById = (id: string) => `${conversationsRoot}/${id}`;
 export const genTitle = () => `${conversationsRoot}/gen_title`;
 
 export const updateConversation = () => `${conversationsRoot}/update`;
+
+export const pinConversation = () => `${conversationsRoot}/pin`;
 
 export const deleteConversation = () => `${conversationsRoot}`;
 

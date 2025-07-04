@@ -38,6 +38,7 @@ export interface IPreset extends Document {
   instructions?: string;
   stop?: string[];
   isArchived?: boolean;
+  isPinned?: boolean;
   iconURL?: string;
   greeting?: string;
   spec?: string;
@@ -46,6 +47,8 @@ export interface IPreset extends Document {
   maxContextTokens?: number;
   max_tokens?: number;
   reasoning_effort?: string;
+  reasoning_summary?: string;
+  useResponsesApi?: boolean;
   // end of additional fields
   agentOptions?: unknown;
 }

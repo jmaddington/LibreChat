@@ -1,4 +1,6 @@
 const { logger } = require('@librechat/data-schemas');
+const { createTempChatExpirationDate } = require('@librechat/api');
+const getCustomConfig = require('~/server/services/Config/loadCustomConfig');
 const { getMessages, deleteMessages } = require('./Message');
 const { Conversation } = require('~/db/models');
 
@@ -98,10 +100,15 @@ module.exports = {
         update.conversationId = newConversationId;
       }
 
-      if (req.body.isTemporary) {
-        const expiredAt = new Date();
-        expiredAt.setDate(expiredAt.getDate() + 30);
-        update.expiredAt = expiredAt;
+      if (req?.body?.isTemporary) {
+        try {
+          const customConfig = await getCustomConfig();
+          update.expiredAt = createTempChatExpirationDate(customConfig);
+        } catch (err) {
+          logger.error('Error creating temporary chat expiration date:', err);
+          logger.info(`---\`saveConvo\` context: ${metadata?.context}`);
+          update.expiredAt = null;
+        }
       } else {
         update.expiredAt = null;
       }
@@ -151,13 +158,21 @@ module.exports = {
   },
   getConvosByCursor: async (
     user,
-    { cursor, limit = 25, isArchived = false, tags, search, order = 'desc' } = {},
+    { cursor, limit = 25, isArchived = false, isPinned, tags, search, order = 'desc' } = {},
   ) => {
     const filters = [{ user }];
     if (isArchived) {
       filters.push({ isArchived: true });
     } else {
       filters.push({ $or: [{ isArchived: false }, { isArchived: { $exists: false } }] });
+    }
+
+    if (isPinned !== undefined) {
+      if (isPinned) {
+        filters.push({ isPinned: true });
+      } else {
+        filters.push({ $or: [{ isPinned: false }, { isPinned: { $exists: false } }] });
+      }
     }
 
     if (Array.isArray(tags) && tags.length > 0) {
@@ -191,7 +206,7 @@ module.exports = {
     try {
       const convos = await Conversation.find(query)
         .select(
-          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL',
+          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL isPinned',
         )
         .sort({ updatedAt: order === 'asc' ? 1 : -1 })
         .limit(limit + 1)
