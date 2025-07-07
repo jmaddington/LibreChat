@@ -325,6 +325,18 @@ export function addConvoToAllQueries(queryClient: QueryClient, newConvo: TConver
     .findAll([QueryKeys.allConversations], { exact: false });
 
   for (const query of queries) {
+    const params = (Array.isArray(query.queryKey) ? query.queryKey[1] : undefined) as
+      | { isPinned?: boolean; isArchived?: boolean }
+      | undefined;
+
+    if (params?.isPinned !== undefined && params.isPinned !== newConvo.isPinned) {
+      continue;
+    }
+
+    if (params?.isArchived !== undefined && params.isArchived !== newConvo.isArchived) {
+      continue;
+    }
+
     queryClient.setQueryData<InfiniteData<ConversationCursorData>>(query.queryKey, (oldData) => {
       if (!oldData) {
         return oldData;
