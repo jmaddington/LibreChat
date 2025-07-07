@@ -74,7 +74,7 @@ services:
       - ../.env
     # restart: always
     volumes:
-      - ./datae/pg:/var/lib/postgresql/data
+      - ./data/pg:/var/lib/postgresql/data
   
   rag_api:
     container_name: rag_api-lcdev
@@ -87,6 +87,3 @@ services:
       - vectordb
     env_file:
       - ../.env
-
-volumes:
-  pgdata-lcdev:
