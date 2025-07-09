@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { ISupportContact } from './supportContact'
 
 export interface IAgent extends Omit<Document, 'model'> {
   id: string;
@@ -28,4 +29,6 @@ export interface IAgent extends Omit<Document, 'model'> {
   tool_resources?: unknown;
   projectIds?: Types.ObjectId[];
   versions?: Omit<IAgent, 'versions'>[];
+  category: string;
+  support_contact?: ISupportContact;
 }

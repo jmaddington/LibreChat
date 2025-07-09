@@ -15,5 +15,6 @@ export * from './assistant';
 export * from './file';
 export * from './share';
 export * from './pluginAuth';
+export * from './supportContact';
 /* Memories */
 export * from './memory';
