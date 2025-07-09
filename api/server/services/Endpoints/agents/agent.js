@@ -85,7 +85,7 @@ const initializeAgent = async ({
   });
 
   const provider = agent.provider;
-  const { tools, toolContextMap } =
+  const { tools: structuredTools, toolContextMap } =
     (await loadTools?.({
       req,
       res,
@@ -140,12 +140,22 @@ const initializeAgent = async ({
     agent.provider = options.provider;
   }
 
+  /** @type {import('@librechat/agents').GenericTool[]} */
+  let tools = options.tools?.length ? options.tools : structuredTools;
   if (
     (agent.provider === Providers.GOOGLE || agent.provider === Providers.VERTEXAI) &&
-    options?.tools?.length &&
-    tools?.length
+    options.tools?.length &&
+    structuredTools?.length
   ) {
     throw new Error(`{ "type": "${ErrorTypes.GOOGLE_TOOL_CONFLICT}"}`);
+  } else if (
+    (agent.provider === Providers.OPENAI ||
+      agent.provider === Providers.AZURE ||
+      agent.provider === Providers.ANTHROPIC) &&
+    options.tools?.length &&
+    structuredTools?.length
+  ) {
+    tools = structuredTools.concat(options.tools);
   }
 
   /** @type {import('@librechat/agents').ClientOptions} */
@@ -173,7 +183,7 @@ const initializeAgent = async ({
     attachments,
     resendFiles,
     toolContextMap,
-    tools: options.tools ?? tools,
+    tools,
     maxContextTokens: (agentMaxContextTokens - maxTokens) * 0.9,
   };
 };
