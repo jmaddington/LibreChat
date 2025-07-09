@@ -16,6 +16,63 @@ const getLogStores = require('~/cache/getLogStores');
 const { getActions } = require('./Action');
 const { Agent } = require('~/db/models');
 
+// Category values - must match the frontend values in client/src/constants/agentCategories.ts
+const CATEGORY_VALUES = {
+  GENERAL: 'general',
+  HR: 'hr',
+  RD: 'rd',
+  FINANCE: 'finance',
+  IT: 'it',
+  SALES: 'sales',
+  AFTERSALES: 'aftersales',
+};
+
+const VALID_CATEGORIES = Object.values(CATEGORY_VALUES);
+
+// Add category field to the Agent schema if it doesn't already exist
+if (!agentSchema.paths.category) {
+  agentSchema.add({
+    category: {
+      type: String,
+      trim: true,
+      enum: {
+        values: VALID_CATEGORIES,
+        message:
+          '"{VALUE}" is not a supported agent category. Valid categories are: ' +
+          VALID_CATEGORIES.join(', ') +
+          '.',
+      },
+      index: true,
+      default: CATEGORY_VALUES.GENERAL,
+    },
+  });
+}
+
+// Add support_contact field to the Agent schema if it doesn't already exist
+if (!agentSchema.paths.support_contact) {
+  agentSchema.add({
+    support_contact: {
+      type: Object,
+      default: {},
+      name: {
+        type: String,
+        minlength: [3, 'Support contact name must be at least 3 characters.'],
+        trim: true,
+      },
+      email: {
+        type: String,
+        match: [
+          /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+          'Please enter a valid email address.',
+        ],
+        trim: true,
+      },
+    },
+  });
+}
+
+const Agent = mongoose.model('agent', agentSchema);
+
 /**
  * Create an agent with the provided data.
  * @param {Object} agentData - The agent data to create.
@@ -27,6 +84,7 @@ const createAgent = async (agentData) => {
   const timestamp = new Date();
   const initialAgentData = {
     ...agentData,
+    category: agentData.category || 'general',
     versions: [
       {
         ...versionData,
@@ -496,6 +554,7 @@ const getListAgents = async (searchParameter) => {
       projectIds: 1,
       description: 1,
       isCollaborative: 1,
+      category: 1,
     }).lean()
   ).map((agent) => {
     if (agent.author?.toString() !== author) {

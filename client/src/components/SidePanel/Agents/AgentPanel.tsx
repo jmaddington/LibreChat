@@ -177,6 +177,8 @@ export default function AgentPanel() {
         end_after_tools,
         hide_sequential_outputs,
         recursion_limit,
+        category,
+        support_contact,
       } = data;
 
       const model = _model ?? '';
@@ -199,6 +201,8 @@ export default function AgentPanel() {
             end_after_tools,
             hide_sequential_outputs,
             recursion_limit,
+            category,
+            support_contact,
           },
         });
         return;
@@ -224,6 +228,8 @@ export default function AgentPanel() {
         end_after_tools,
         hide_sequential_outputs,
         recursion_limit,
+        category,
+        support_contact,
       });
     },
     [agent_id, create, update, showToast, localize],
@@ -257,7 +263,7 @@ export default function AgentPanel() {
         className="scrollbar-gutter-stable h-auto w-full flex-shrink-0 overflow-x-hidden"
         aria-label="Agent configuration form"
       >
-        <div className="mt-2 flex w-full flex-wrap gap-2">
+        <div className="mx-1 mt-2 flex w-full flex-wrap gap-2">
           <div className="w-full">
             <AgentSelect
               createMutation={create}
