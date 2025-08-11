@@ -13,7 +13,7 @@ const { getCustomEndpointConfig } = require('~/server/services/Config');
  */
 function isKnownCustomProvider(provider) {
   return [Providers.XAI, Providers.OLLAMA, Providers.DEEPSEEK, Providers.OPENROUTER].includes(
-    provider || '',
+    provider?.toLowerCase() || '',
   );
 }
 
@@ -34,13 +34,13 @@ const providerConfigMap = {
  * @param {string} provider - The provider string
  * @returns {Promise<{
  * getOptions: Function,
- * overrideProvider?: string,
+ * overrideProvider: string,
  * customEndpointConfig?: TEndpoint
  * }>}
  */
 async function getProviderConfig(provider) {
   let getOptions = providerConfigMap[provider];
-  let overrideProvider;
+  let overrideProvider = provider;
   /** @type {TEndpoint | undefined} */
   let customEndpointConfig;
 
@@ -56,7 +56,7 @@ async function getProviderConfig(provider) {
     overrideProvider = Providers.OPENAI;
   }
 
-  if (isKnownCustomProvider(overrideProvider)) {
+  if (isKnownCustomProvider(overrideProvider) && !customEndpointConfig) {
     customEndpointConfig = await getCustomEndpointConfig(provider);
     if (!customEndpointConfig) {
       throw new Error(`Provider ${provider} not supported`);

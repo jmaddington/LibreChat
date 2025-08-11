@@ -8,16 +8,11 @@ export * from './artifacts';
 /* schema helpers  */
 export * from './parsers';
 export * from './ocr';
-export * from './zod';
 /* custom/dynamic configurations  */
 export * from './generate';
 export * from './models';
 /* mcp */
 export * from './mcp';
-/* web search */
-export * from './web';
-/* memory */
-export * from './memory';
 /* RBAC */
 export * from './permissions';
 export * from './roles';

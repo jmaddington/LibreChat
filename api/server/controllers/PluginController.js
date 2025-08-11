@@ -1,54 +1,15 @@
 const { logger } = require('@librechat/data-schemas');
-const { CacheKeys, AuthType } = require('librechat-data-provider');
+const { CacheKeys, Constants } = require('librechat-data-provider');
+const {
+  getToolkitKey,
+  checkPluginAuth,
+  filterUniquePlugins,
+  convertMCPToolsToPlugins,
+} = require('@librechat/api');
 const { getCustomConfig, getCachedTools } = require('~/server/services/Config');
-const { getToolkitKey } = require('~/server/services/ToolService');
+const { availableTools, toolkits } = require('~/app/clients/tools');
 const { getMCPManager, getFlowStateManager } = require('~/config');
-const { availableTools } = require('~/app/clients/tools');
 const { getLogStores } = require('~/cache');
-const { Constants } = require('librechat-data-provider');
-
-/**
- * Filters out duplicate plugins from the list of plugins.
- *
- * @param {TPlugin[]} plugins The list of plugins to filter.
- * @returns {TPlugin[]} The list of plugins with duplicates removed.
- */
-const filterUniquePlugins = (plugins) => {
-  const seen = new Set();
-  return plugins.filter((plugin) => {
-    const duplicate = seen.has(plugin.pluginKey);
-    seen.add(plugin.pluginKey);
-    return !duplicate;
-  });
-};
-
-/**
- * Determines if a plugin is authenticated by checking if all required authentication fields have non-empty values.
- * Supports alternate authentication fields, allowing validation against multiple possible environment variables.
- *
- * @param {TPlugin} plugin The plugin object containing the authentication configuration.
- * @returns {boolean} True if the plugin is authenticated for all required fields, false otherwise.
- */
-const checkPluginAuth = (plugin) => {
-  if (!plugin.authConfig || plugin.authConfig.length === 0) {
-    return false;
-  }
-
-  return plugin.authConfig.every((authFieldObj) => {
-    const authFieldOptions = authFieldObj.authField.split('||');
-    let isFieldAuthenticated = false;
-
-    for (const fieldOption of authFieldOptions) {
-      const envValue = process.env[fieldOption];
-      if (envValue && envValue.trim() !== '' && envValue !== AuthType.USER_PROVIDED) {
-        isFieldAuthenticated = true;
-        break;
-      }
-    }
-
-    return isFieldAuthenticated;
-  });
-};
 
 const getAvailablePluginsController = async (req, res) => {
   try {
@@ -139,15 +100,21 @@ function createGetServerTools() {
  */
 const getAvailableTools = async (req, res) => {
   try {
+    const userId = req.user?.id;
+    const customConfig = await getCustomConfig();
     const cache = getLogStores(CacheKeys.CONFIG_STORE);
-    const cachedTools = await cache.get(CacheKeys.TOOLS);
-    if (cachedTools) {
-      res.status(200).json(cachedTools);
+    const cachedToolsArray = await cache.get(CacheKeys.TOOLS);
+    const cachedUserTools = await getCachedTools({ userId });
+    const userPlugins = convertMCPToolsToPlugins({ functionTools: cachedUserTools, customConfig });
+
+    if (cachedToolsArray != null && userPlugins != null) {
+      const dedupedTools = filterUniquePlugins([...userPlugins, ...cachedToolsArray]);
+      res.status(200).json(dedupedTools);
       return;
     }
 
+    // If not in cache, build from manifest
     let pluginManifest = availableTools;
-    const customConfig = await getCustomConfig();
     if (customConfig?.mcpServers != null) {
       const mcpManager = getMCPManager();
       const flowsCache = getLogStores(CacheKeys.FLOWS);
@@ -173,14 +140,16 @@ const getAvailableTools = async (req, res) => {
       }
     });
 
-    const toolDefinitions = await getCachedTools({ includeGlobal: true });
+    const toolDefinitions = (await getCachedTools({ includeGlobal: true })) || {};
 
     const toolsOutput = [];
     for (const plugin of authenticatedPlugins) {
       const isToolDefined = toolDefinitions[plugin.pluginKey] !== undefined;
       const isToolkit =
         plugin.toolkit === true &&
-        Object.keys(toolDefinitions).some((key) => getToolkitKey(key) === plugin.pluginKey);
+        Object.keys(toolDefinitions).some(
+          (key) => getToolkitKey({ toolkits, toolName: key }) === plugin.pluginKey,
+        );
 
       if (!isToolDefined && !isToolkit) {
         continue;
@@ -218,10 +187,12 @@ const getAvailableTools = async (req, res) => {
 
       toolsOutput.push(toolToAdd);
     }
-
     const finalTools = filterUniquePlugins(toolsOutput);
     await cache.set(CacheKeys.TOOLS, finalTools);
-    res.status(200).json(finalTools);
+
+    const dedupedTools = filterUniquePlugins([...userPlugins, ...finalTools]);
+
+    res.status(200).json(dedupedTools);
   } catch (error) {
     logger.error('[getAvailableTools]', error);
     res.status(500).json({ message: error.message });
