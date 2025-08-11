@@ -10,7 +10,7 @@ import {
   useArchiveConvoMutation,
   usePinConversationMutation,
 } from '~/data-provider';
-import { PinIcon } from '~/components/svg';
+import { PinIcon } from '@librechat/client';
 import { useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
 import { NotificationSeverity } from '~/common';
 import { useChatContext } from '~/Providers';
@@ -139,7 +139,7 @@ function ConvoOptions({
     if (!conversationId) {
       return;
     }
-    
+
     pinConversationMutation.mutate(
       { conversationId, isPinned: !isPinned },
       {
@@ -186,11 +186,11 @@ function ConvoOptions({
         icon: isPinLoading ? (
           <Spinner className="size-4" />
         ) : (
-          <PinIcon 
+          <PinIcon
             className={cn(
               "icon-sm mr-2 text-text-primary",
               isPinned ? "fill-current" : ""
-            )} 
+            )}
           />
         ),
       },
