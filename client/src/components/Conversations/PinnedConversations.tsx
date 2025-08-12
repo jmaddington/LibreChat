@@ -2,7 +2,7 @@ import { useCallback, memo, useState, useEffect, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { TConversation } from 'librechat-data-provider';
 import { useReorderPinnedConversationsMutation } from '~/data-provider';
-import { useToastContext } from '~/Providers';
+import { useToastContext } from '@librechat/client';
 import { useLocalize } from '~/hooks';
 import Convo from './Convo';
 
