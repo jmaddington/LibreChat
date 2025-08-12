@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useParams } from 'react-router-dom';
 import { Constants } from 'librechat-data-provider';
+import { useToastContext, useMediaQuery } from '@librechat/client';
 import type { TConversation } from 'librechat-data-provider';
-import { useNavigateToConvo, useMediaQuery, useLocalize } from '~/hooks';
 import { useUpdateConversationMutation } from '~/data-provider';
 import EndpointIcon from '~/components/Endpoints/EndpointIcon';
+import { useNavigateToConvo, useLocalize } from '~/hooks';
 import { useGetEndpointsQuery } from '~/data-provider';
 import { NotificationSeverity } from '~/common';
 import { ConvoOptions } from './ConvoOptions';
-import { useToastContext } from '~/Providers';
 import RenameForm from './RenameForm';
 import ConvoLink from './ConvoLink';
 import { cn } from '~/utils';
@@ -26,6 +26,7 @@ export default function Conversation({
   conversation,
   retainView,
   toggleNav,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLatestConvo,
 }: ConversationProps) {
   const params = useParams();
@@ -83,7 +84,7 @@ export default function Conversation({
         title: newTitle.trim() || localize('com_ui_untitled'),
       });
       setRenaming(false);
-    } catch (error) {
+    } catch (_) {
       setTitleInput(title as string);
       showToast({
         message: localize('com_ui_rename_failed'),
@@ -132,7 +133,7 @@ export default function Conversation({
     conversationId,
     isPopoverActive,
     setIsPopoverActive,
-    isPinned: conversation.isPinned,
+    conversation,
   };
 
   return (
@@ -177,7 +178,6 @@ export default function Conversation({
           onRename={handleRename}
           isSmallScreen={isSmallScreen}
           localize={localize}
-          isPinned={conversation.isPinned}
         >
           <EndpointIcon
             conversation={conversation}

@@ -113,6 +113,7 @@ export enum ImageDetail {
 
 export enum ReasoningEffort {
   none = '',
+  minimal = 'minimal',
   low = 'low',
   medium = 'medium',
   high = 'high',
@@ -123,6 +124,13 @@ export enum ReasoningSummary {
   auto = 'auto',
   concise = 'concise',
   detailed = 'detailed',
+}
+
+export enum Verbosity {
+  none = '',
+  low = 'low',
+  medium = 'medium',
+  high = 'high',
 }
 
 export const imageDetailNumeric = {
@@ -140,6 +148,7 @@ export const imageDetailValue = {
 export const eImageDetailSchema = z.nativeEnum(ImageDetail);
 export const eReasoningEffortSchema = z.nativeEnum(ReasoningEffort);
 export const eReasoningSummarySchema = z.nativeEnum(ReasoningSummary);
+export const eVerbositySchema = z.nativeEnum(Verbosity);
 
 export const defaultAssistantFormValues = {
   assistant: '',
@@ -208,13 +217,13 @@ export const openAISettings = {
     default: 1 as const,
   },
   presence_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
   },
   frequency_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
@@ -352,6 +361,9 @@ export const anthropicSettings = {
       default: LEGACY_ANTHROPIC_MAX_OUTPUT,
     },
   },
+  web_search: {
+    default: false as const,
+  },
 };
 
 export const agentsSettings = {
@@ -371,13 +383,13 @@ export const agentsSettings = {
     default: 1 as const,
   },
   presence_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
   },
   frequency_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
@@ -531,7 +543,7 @@ export type MemoryArtifact = {
   key: string;
   value?: string;
   tokenCount?: number;
-  type: 'update' | 'delete';
+  type: 'update' | 'delete' | 'error';
 };
 
 export type TAttachmentMetadata = {
@@ -592,7 +604,6 @@ export const tConversationSchema = z.object({
   endpoint: eModelEndpointSchema.nullable(),
   endpointType: eModelEndpointSchema.nullable().optional(),
   isArchived: z.boolean().optional(),
-  isPinned: z.boolean().optional(),
   title: z.string().nullable().or(z.literal('New Chat')).default('New Chat'),
   user: z.string().optional(),
   messages: z.array(z.string()).optional(),
@@ -623,6 +634,8 @@ export const tConversationSchema = z.object({
   examples: z.array(tExampleSchema).optional(),
   /* DB */
   tags: z.array(z.string()).optional(),
+  isPinned: z.boolean().optional(),
+  pinnedOrder: z.number().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   /* Files */
@@ -633,10 +646,14 @@ export const tConversationSchema = z.object({
   /* OpenAI: Reasoning models only */
   reasoning_effort: eReasoningEffortSchema.optional().nullable(),
   reasoning_summary: eReasoningSummarySchema.optional().nullable(),
+  /* OpenAI: Verbosity control */
+  verbosity: eVerbositySchema.optional().nullable(),
   /* OpenAI: use Responses API */
   useResponsesApi: z.boolean().optional(),
-  /* Google: use Search Grounding */
-  grounding: z.boolean().optional(),
+  /* OpenAI Responses API / Anthropic API / Google API */
+  web_search: z.boolean().optional(),
+  /* disable streaming */
+  disableStreaming: z.boolean().optional(),
   /* assistant */
   assistant_id: z.string().optional(),
   /* agents */
@@ -738,9 +755,13 @@ export const tQueryParamsSchema = tConversationSchema
     /** @endpoints openAI, custom, azureOpenAI */
     reasoning_summary: true,
     /** @endpoints openAI, custom, azureOpenAI */
+    verbosity: true,
+    /** @endpoints openAI, custom, azureOpenAI */
     useResponsesApi: true,
-    /** @endpoints google */
-    grounding: true,
+    /** @endpoints openAI, anthropic, google */
+    web_search: true,
+    /** @endpoints openAI, custom, azureOpenAI */
+    disableStreaming: true,
     /** @endpoints google, anthropic, bedrock */
     topP: true,
     /** @endpoints google, anthropic */
@@ -823,7 +844,7 @@ export const googleBaseSchema = tConversationSchema.pick({
   topK: true,
   thinking: true,
   thinkingBudget: true,
-  grounding: true,
+  web_search: true,
   iconURL: true,
   greeting: true,
   spec: true,
@@ -855,7 +876,7 @@ export const googleGenConfigSchema = z
         thinkingBudget: coerceNumber.optional(),
       })
       .optional(),
-    grounding: z.boolean().optional(),
+    web_search: z.boolean().optional(),
   })
   .strip()
   .optional();
@@ -1071,7 +1092,10 @@ export const openAIBaseSchema = tConversationSchema.pick({
   max_tokens: true,
   reasoning_effort: true,
   reasoning_summary: true,
+  verbosity: true,
   useResponsesApi: true,
+  web_search: true,
+  disableStreaming: true,
 });
 
 export const openAISchema = openAIBaseSchema
@@ -1115,6 +1139,7 @@ export const anthropicBaseSchema = tConversationSchema.pick({
   greeting: true,
   spec: true,
   maxContextTokens: true,
+  web_search: true,
 });
 
 export const anthropicSchema = anthropicBaseSchema

@@ -1,4 +1,5 @@
 import {
+  Verbosity,
   ImageDetail,
   EModelEndpoint,
   openAISettings,
@@ -221,12 +222,14 @@ const openAIParams: Record<string, SettingDefinition> = {
     component: 'slider',
     options: [
       ReasoningEffort.none,
+      ReasoningEffort.minimal,
       ReasoningEffort.low,
       ReasoningEffort.medium,
       ReasoningEffort.high,
     ],
     enumMappings: {
       [ReasoningEffort.none]: 'com_ui_none',
+      [ReasoningEffort.minimal]: 'com_ui_minimal',
       [ReasoningEffort.low]: 'com_ui_low',
       [ReasoningEffort.medium]: 'com_ui_medium',
       [ReasoningEffort.high]: 'com_ui_high',
@@ -239,6 +242,19 @@ const openAIParams: Record<string, SettingDefinition> = {
     label: 'com_endpoint_use_responses_api',
     labelCode: true,
     description: 'com_endpoint_openai_use_responses_api',
+    descriptionCode: true,
+    type: 'boolean',
+    default: false,
+    component: 'switch',
+    optionType: 'model',
+    showDefault: false,
+    columnSpan: 2,
+  },
+  web_search: {
+    key: 'web_search',
+    label: 'com_ui_web_search',
+    labelCode: true,
+    description: 'com_endpoint_openai_use_web_search',
     descriptionCode: true,
     type: 'boolean',
     default: false,
@@ -271,6 +287,38 @@ const openAIParams: Record<string, SettingDefinition> = {
     optionType: 'model',
     columnSpan: 4,
   },
+  verbosity: {
+    key: 'verbosity',
+    label: 'com_endpoint_verbosity',
+    labelCode: true,
+    description: 'com_endpoint_openai_verbosity',
+    descriptionCode: true,
+    type: 'enum',
+    default: Verbosity.none,
+    component: 'slider',
+    options: [Verbosity.none, Verbosity.low, Verbosity.medium, Verbosity.high],
+    enumMappings: {
+      [Verbosity.none]: 'com_ui_none',
+      [Verbosity.low]: 'com_ui_low',
+      [Verbosity.medium]: 'com_ui_medium',
+      [Verbosity.high]: 'com_ui_high',
+    },
+    optionType: 'model',
+    columnSpan: 4,
+  },
+  disableStreaming: {
+    key: 'disableStreaming',
+    label: 'com_endpoint_disable_streaming_label',
+    labelCode: true,
+    description: 'com_endpoint_disable_streaming',
+    descriptionCode: true,
+    type: 'boolean',
+    default: false,
+    component: 'switch',
+    optionType: 'model',
+    showDefault: false,
+    columnSpan: 2,
+  } as const,
 };
 
 const anthropic: Record<string, SettingDefinition> = {
@@ -366,6 +414,19 @@ const anthropic: Record<string, SettingDefinition> = {
       step: anthropicSettings.thinkingBudget.step,
     },
     optionType: 'conversation',
+    columnSpan: 2,
+  },
+  web_search: {
+    key: 'web_search',
+    label: 'com_ui_web_search',
+    labelCode: true,
+    description: 'com_endpoint_anthropic_use_web_search',
+    descriptionCode: true,
+    type: 'boolean',
+    default: anthropicSettings.web_search.default,
+    component: 'switch',
+    optionType: 'conversation',
+    showDefault: false,
     columnSpan: 2,
   },
 };
@@ -537,8 +598,8 @@ const google: Record<string, SettingDefinition> = {
     optionType: 'conversation',
     columnSpan: 2,
   },
-  grounding: {
-    key: 'grounding',
+  web_search: {
+    key: 'web_search',
     label: 'com_endpoint_use_search_grounding',
     labelCode: true,
     description: 'com_endpoint_google_use_search_grounding',
@@ -563,7 +624,7 @@ const googleConfig: SettingsConfiguration = [
   librechat.resendFiles,
   google.thinking,
   google.thinkingBudget,
-  google.grounding,
+  google.web_search,
 ];
 
 const googleCol1: SettingsConfiguration = [
@@ -581,7 +642,7 @@ const googleCol2: SettingsConfiguration = [
   librechat.resendFiles,
   google.thinking,
   google.thinkingBudget,
-  google.grounding,
+  google.web_search,
 ];
 
 const openAI: SettingsConfiguration = [
@@ -596,9 +657,12 @@ const openAI: SettingsConfiguration = [
   baseDefinitions.stop,
   librechat.resendFiles,
   baseDefinitions.imageDetail,
+  openAIParams.web_search,
   openAIParams.reasoning_effort,
   openAIParams.useResponsesApi,
   openAIParams.reasoning_summary,
+  openAIParams.verbosity,
+  openAIParams.disableStreaming,
 ];
 
 const openAICol1: SettingsConfiguration = [
@@ -618,8 +682,11 @@ const openAICol2: SettingsConfiguration = [
   librechat.resendFiles,
   baseDefinitions.imageDetail,
   openAIParams.reasoning_effort,
-  openAIParams.useResponsesApi,
   openAIParams.reasoning_summary,
+  openAIParams.verbosity,
+  openAIParams.useResponsesApi,
+  openAIParams.web_search,
+  openAIParams.disableStreaming,
 ];
 
 const anthropicConfig: SettingsConfiguration = [
@@ -634,6 +701,7 @@ const anthropicConfig: SettingsConfiguration = [
   anthropic.promptCache,
   anthropic.thinking,
   anthropic.thinkingBudget,
+  anthropic.web_search,
 ];
 
 const anthropicCol1: SettingsConfiguration = [
@@ -652,6 +720,7 @@ const anthropicCol2: SettingsConfiguration = [
   anthropic.promptCache,
   anthropic.thinking,
   anthropic.thinkingBudget,
+  anthropic.web_search,
 ];
 
 const bedrockAnthropic: SettingsConfiguration = [
