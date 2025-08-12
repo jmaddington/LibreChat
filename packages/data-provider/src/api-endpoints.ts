@@ -82,7 +82,7 @@ export const genTitle = () => `${conversationsRoot}/gen_title`;
 
 export const updateConversation = () => `${conversationsRoot}/update`;
 
-export const pinConversation = () => `${conversationsRoot}/pin`;
+export const reorderPinnedConversations = () => `${conversationsRoot}/reorder-pinned`;
 
 export const deleteConversation = () => `${conversationsRoot}`;
 

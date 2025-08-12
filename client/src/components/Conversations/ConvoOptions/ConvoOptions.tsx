@@ -1,16 +1,16 @@
-import { useState, useId, useRef, memo, useCallback, useMemo } from 'react';
-import * as Menu from '@ariakit/react/menu';
-import { useParams, useNavigate } from 'react-router-dom';
-import { DropdownPopup, Spinner, useToastContext } from '@librechat/client';
-import { Ellipsis, Share2, Copy, Archive, Pen, Trash } from 'lucide-react';
 import type { MouseEvent } from 'react';
+import { memo, useCallback, useId, useMemo, useRef, useState } from 'react';
+import * as Menu from '@ariakit/react/menu';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DropdownPopup, Spinner, useToastContext } from '@librechat/client';
+import { Archive, Copy, Ellipsis, Pen, Pin, PinOff, Share2, Trash } from 'lucide-react';
+import type { TConversation } from 'librechat-data-provider';
 import {
+  useArchiveConvoMutation,
   useDuplicateConversationMutation,
   useGetStartupConfig,
-  useArchiveConvoMutation,
   usePinConversationMutation,
 } from '~/data-provider';
-import { PinIcon } from '@librechat/client';
 import { useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
 import { NotificationSeverity } from '~/common';
 import { useChatContext } from '~/Providers';
@@ -26,7 +26,7 @@ function ConvoOptions({
   isPopoverActive,
   setIsPopoverActive,
   isActiveConvo,
-  isPinned = false,
+  conversation,
 }: {
   conversationId: string | null;
   title: string | null;
@@ -35,7 +35,7 @@ function ConvoOptions({
   isPopoverActive: boolean;
   setIsPopoverActive: React.Dispatch<React.SetStateAction<boolean>>;
   isActiveConvo: boolean;
-  isPinned?: boolean;
+  conversation?: TConversation;
 }) {
   const localize = useLocalize();
   const { index } = useChatContext();
@@ -53,6 +53,7 @@ function ConvoOptions({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const archiveConvoMutation = useArchiveConvoMutation();
+  const pinConvoMutation = usePinConversationMutation();
 
   const duplicateConversation = useDuplicateConversationMutation({
     onSuccess: (data) => {
@@ -79,9 +80,7 @@ function ConvoOptions({
 
   const isDuplicateLoading = duplicateConversation.isLoading;
   const isArchiveLoading = archiveConvoMutation.isLoading;
-
-  const pinConversationMutation = usePinConversationMutation();
-  const isPinLoading = pinConversationMutation.isLoading;
+  const isPinned = conversation?.isPinned ?? false;
 
   const handleShareClick = useCallback(() => {
     setShowShareDialog(true);
@@ -129,39 +128,47 @@ function ConvoOptions({
     localize,
   ]);
 
-  const handleDuplicateClick = useCallback(() => {
-    duplicateConversation.mutate({
-      conversationId: conversationId ?? '',
-    });
-  }, [conversationId, duplicateConversation]);
-
   const handlePinClick = useCallback(() => {
-    if (!conversationId) {
+    const convoId = conversationId ?? '';
+    if (!convoId) {
       return;
     }
 
-    pinConversationMutation.mutate(
-      { conversationId, isPinned: !isPinned },
+    pinConvoMutation.mutate(
+      { conversationId: convoId, isPinned: !isPinned },
       {
         onSuccess: () => {
-          showToast({
-            message: localize(isPinned ? 'com_nav_unpinned' : 'com_nav_pinned'),
-            severity: NotificationSeverity.SUCCESS,
-            showIcon: true,
-          });
           retainView();
           setIsPopoverActive(false);
+          showToast({
+            message: isPinned ? localize('com_ui_unpinned') : localize('com_ui_pinned'),
+            status: 'success',
+          });
         },
         onError: () => {
           showToast({
-            message: localize('com_ui_error_server_fail'),
+            message: localize('com_ui_pin_error'),
             severity: NotificationSeverity.ERROR,
             showIcon: true,
           });
         },
       },
     );
-  }, [conversationId, isPinned, pinConversationMutation, showToast, localize, retainView, setIsPopoverActive]);
+  }, [
+    conversationId,
+    isPinned,
+    pinConvoMutation,
+    retainView,
+    setIsPopoverActive,
+    showToast,
+    localize,
+  ]);
+
+  const handleDuplicateClick = useCallback(() => {
+    duplicateConversation.mutate({
+      conversationId: conversationId ?? '',
+    });
+  }, [conversationId, duplicateConversation]);
 
   const dropdownItems = useMemo(
     () => [
@@ -175,24 +182,18 @@ function ConvoOptions({
         render: (props) => <button {...props} />,
       },
       {
+        label: isPinned ? localize('com_ui_unpin') : localize('com_ui_pin'),
+        onClick: handlePinClick,
+        icon: isPinned ? (
+          <PinOff className="icon-sm mr-2 text-text-primary" />
+        ) : (
+          <Pin className="icon-sm mr-2 text-text-primary" />
+        ),
+      },
+      {
         label: localize('com_ui_rename'),
         onClick: renameHandler,
         icon: <Pen className="icon-sm mr-2 text-text-primary" />,
-      },
-      {
-        label: localize(isPinned ? 'com_nav_unpin' : 'com_nav_pin'),
-        onClick: handlePinClick,
-        hideOnClick: false,
-        icon: isPinLoading ? (
-          <Spinner className="size-4" />
-        ) : (
-          <PinIcon
-            className={cn(
-              "icon-sm mr-2 text-text-primary",
-              isPinned ? "fill-current" : ""
-            )}
-          />
-        ),
       },
       {
         label: localize('com_ui_duplicate'),
@@ -227,10 +228,9 @@ function ConvoOptions({
       localize,
       handleShareClick,
       startupConfig,
-      renameHandler,
       isPinned,
       handlePinClick,
-      isPinLoading,
+      renameHandler,
       handleDuplicateClick,
       isDuplicateLoading,
       handleArchiveClick,
@@ -304,7 +304,6 @@ export default memo(ConvoOptions, (prevProps, nextProps) => {
     prevProps.conversationId === nextProps.conversationId &&
     prevProps.title === nextProps.title &&
     prevProps.isPopoverActive === nextProps.isPopoverActive &&
-    prevProps.isActiveConvo === nextProps.isActiveConvo &&
-    prevProps.isPinned === nextProps.isPinned
+    prevProps.isActiveConvo === nextProps.isActiveConvo
   );
 });

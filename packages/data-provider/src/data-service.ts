@@ -615,10 +615,10 @@ export function updateConversation(
   return request.post(endpoints.updateConversation(), { arg: payload });
 }
 
-export function pinConversation(
-  payload: { conversationId: string; isPinned: boolean },
-): Promise<s.TConversation> {
-  return request.post(endpoints.pinConversation(), payload);
+export function reorderPinnedConversations(
+  payload: { conversationIds: string[] },
+): Promise<{ message: string; modifiedCount: number }> {
+  return request.put(endpoints.reorderPinnedConversations(), payload);
 }
 
 export function archiveConversation(
@@ -821,8 +821,8 @@ export function confirmTwoFactor(payload: t.TVerify2FARequest): Promise<t.TVerif
   return request.post(endpoints.confirmTwoFactor(), payload);
 }
 
-export function disableTwoFactor(payload?: t.TDisable2FARequest): Promise<t.TDisable2FAResponse> {
-  return request.post(endpoints.disableTwoFactor(), payload);
+export function disableTwoFactor(): Promise<t.TDisable2FAResponse> {
+  return request.post(endpoints.disableTwoFactor());
 }
 
 export function regenerateBackupCodes(): Promise<t.TRegenerateBackupCodesResponse> {

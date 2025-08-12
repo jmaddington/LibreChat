@@ -26,6 +26,7 @@ export default function Conversation({
   conversation,
   retainView,
   toggleNav,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   isLatestConvo,
 }: ConversationProps) {
   const params = useParams();
@@ -83,7 +84,7 @@ export default function Conversation({
         title: newTitle.trim() || localize('com_ui_untitled'),
       });
       setRenaming(false);
-    } catch (error) {
+    } catch (_) {
       setTitleInput(title as string);
       showToast({
         message: localize('com_ui_rename_failed'),
@@ -132,7 +133,7 @@ export default function Conversation({
     conversationId,
     isPopoverActive,
     setIsPopoverActive,
-    isPinned: conversation.isPinned,
+    conversation,
   };
 
   return (
@@ -177,7 +178,6 @@ export default function Conversation({
           onRename={handleRename}
           isSmallScreen={isSmallScreen}
           localize={localize}
-          isPinned={conversation.isPinned}
         >
           <EndpointIcon
             conversation={conversation}
