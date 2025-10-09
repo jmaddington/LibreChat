@@ -1,17 +1,18 @@
-import { useState, useId, useRef, memo, useCallback, useMemo } from 'react';
-import * as Menu from '@ariakit/react/menu';
-import { useParams, useNavigate } from 'react-router-dom';
-import { DropdownPopup, Spinner, useToastContext } from '@librechat/client';
-import { Ellipsis, Share2, Copy, Archive, Pen, Trash } from 'lucide-react';
 import type { MouseEvent } from 'react';
+import { memo, useCallback, useId, useMemo, useRef, useState } from 'react';
+import * as Menu from '@ariakit/react/menu';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DropdownPopup, Spinner, useToastContext } from '@librechat/client';
+import { Archive, Copy, Ellipsis, Pen, Pin, PinOff, Share2, Trash } from 'lucide-react';
+import type { TConversation } from 'librechat-data-provider';
 import {
+  useArchiveConvoMutation,
   useDuplicateConversationMutation,
   useGetStartupConfig,
-  useArchiveConvoMutation,
   usePinConversationMutation,
 } from '~/data-provider';
-import { PinIcon } from '~/components/svg';
 import { useLocalize, useNavigateToConvo, useNewConvo } from '~/hooks';
+import { PinIcon } from '@librechat/client';
 import { NotificationSeverity } from '~/common';
 import { useChatContext } from '~/Providers';
 import DeleteButton from './DeleteButton';
@@ -139,7 +140,7 @@ function ConvoOptions({
     if (!conversationId) {
       return;
     }
-    
+
     pinConversationMutation.mutate(
       { conversationId, isPinned: !isPinned },
       {
@@ -186,11 +187,11 @@ function ConvoOptions({
         icon: isPinLoading ? (
           <Spinner className="size-4" />
         ) : (
-          <PinIcon 
+          <PinIcon
             className={cn(
               "icon-sm mr-2 text-text-primary",
               isPinned ? "fill-current" : ""
-            )} 
+            )}
           />
         ),
       },

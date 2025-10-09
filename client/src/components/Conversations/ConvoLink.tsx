@@ -1,5 +1,5 @@
 import React from 'react';
-import { PinIcon } from '~/components/svg';
+import { PinIcon } from '@librechat/client';
 import { cn } from '~/utils';
 
 interface ConvoLinkProps {
