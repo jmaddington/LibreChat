@@ -1,11 +1,10 @@
 import { useMemo, memo, type FC, useCallback } from 'react';
 import throttle from 'lodash/throttle';
-import { parseISO, isToday } from 'date-fns';
+import { Spinner, useMediaQuery } from '@librechat/client';
 import { List, AutoSizer, CellMeasurer, CellMeasurerCache } from 'react-virtualized';
-import { useLocalize, TranslationKeys, useMediaQuery } from '~/hooks';
 import { TConversation } from 'librechat-data-provider';
+import { useLocalize, TranslationKeys } from '~/hooks';
 import { groupConversationsByDate } from '~/utils';
-import { Spinner } from '~/components/svg';
 import Convo from './Convo';
 
 interface ConversationsProps {
@@ -29,6 +28,8 @@ const LoadingSpinner = memo(() => {
     </div>
   );
 });
+
+LoadingSpinner.displayName = 'LoadingSpinner';
 
 const DateLabel: FC<{ groupName: string }> = memo(({ groupName }) => {
   const localize = useLocalize();
@@ -88,6 +89,7 @@ const Conversations: FC<ConversationsProps> = ({
   isLoading,
   isSearchLoading,
 }) => {
+  const localize = useLocalize();
   const isSmallScreen = useMediaQuery('(max-width: 768px)');
   const convoHeight = isSmallScreen ? 44 : 34;
 
@@ -115,13 +117,13 @@ const Conversations: FC<ConversationsProps> = ({
 
   const flattenedItems = useMemo(() => {
     const items: FlattenedItem[] = [];
-    
+
     // Add pinned conversations first
     if (filteredPinnedConversations.length > 0) {
       items.push({ type: 'header', groupName: 'com_nav_pinned_chats' });
       items.push(...filteredPinnedConversations.map((convo) => ({ type: 'convo' as const, convo })));
     }
-    
+
     // Add regular conversations grouped by date
     groupedConversations.forEach(([groupName, convos]) => {
       items.push({ type: 'header', groupName });
@@ -170,20 +172,24 @@ const Conversations: FC<ConversationsProps> = ({
           </CellMeasurer>
         );
       }
+      let rendering: JSX.Element;
+      if (item.type === 'header') {
+        rendering = <DateLabel groupName={item.groupName} />;
+      } else if (item.type === 'convo') {
+        rendering = (
+          <MemoizedConvo
+            conversation={item.convo}
+            retainView={moveToTop}
+            toggleNav={toggleNav}
+            isLatestConvo={item.convo.conversationId === firstTodayConvoId}
+          />
+        );
+      }
       return (
         <CellMeasurer cache={cache} columnIndex={0} key={key} parent={parent} rowIndex={index}>
           {({ registerChild }) => (
             <div ref={registerChild} style={style}>
-              {item.type === 'header' ? (
-                <DateLabel groupName={item.groupName} />
-              ) : item.type === 'convo' ? (
-                <MemoizedConvo
-                  conversation={item.convo}
-                  retainView={moveToTop}
-                  toggleNav={toggleNav}
-                  isLatestConvo={item.convo.conversationId === firstTodayConvoId}
-                />
-              ) : null}
+              {rendering}
             </div>
           )}
         </CellMeasurer>
@@ -216,7 +222,7 @@ const Conversations: FC<ConversationsProps> = ({
       {isSearchLoading ? (
         <div className="flex flex-1 items-center justify-center">
           <Spinner className="text-text-primary" />
-          <span className="ml-2 text-text-primary">Loading...</span>
+          <span className="ml-2 text-text-primary">{localize('com_ui_loading')}</span>
         </div>
       ) : (
         <div className="flex-1">

@@ -8,10 +8,12 @@ const {
   deleteMemory,
   setMemory,
 } = require('~/models');
-const { requireJwtAuth } = require('~/server/middleware');
+const { requireJwtAuth, configMiddleware } = require('~/server/middleware');
 const { getRoleByName } = require('~/models/Role');
 
 const router = express.Router();
+
+const memoryPayloadLimit = express.json({ limit: '100kb' });
 
 const checkMemoryRead = generateCheckAccess({
   permissionType: PermissionTypes.MEMORIES,
@@ -46,7 +48,7 @@ router.use(requireJwtAuth);
  * Returns all memories for the authenticated user, sorted by updated_at (newest first).
  * Also includes memory usage percentage based on token limit.
  */
-router.get('/', checkMemoryRead, async (req, res) => {
+router.get('/', checkMemoryRead, configMiddleware, async (req, res) => {
   try {
     const memories = await getAllUserMemories(req.user.id);
 
@@ -58,8 +60,10 @@ router.get('/', checkMemoryRead, async (req, res) => {
       return sum + (memory.tokenCount || 0);
     }, 0);
 
-    const memoryConfig = req.app.locals?.memory;
+    const appConfig = req.config;
+    const memoryConfig = appConfig?.memory;
     const tokenLimit = memoryConfig?.tokenLimit;
+    const charLimit = memoryConfig?.charLimit || 10000;
 
     let usagePercentage = null;
     if (tokenLimit && tokenLimit > 0) {
@@ -70,6 +74,7 @@ router.get('/', checkMemoryRead, async (req, res) => {
       memories: sortedMemories,
       totalTokens,
       tokenLimit: tokenLimit || null,
+      charLimit,
       usagePercentage,
     });
   } catch (error) {
@@ -83,7 +88,7 @@ router.get('/', checkMemoryRead, async (req, res) => {
  * Body: { key: string, value: string }
  * Returns 201 and { created: true, memory: <createdDoc> } when successful.
  */
-router.post('/', checkMemoryCreate, async (req, res) => {
+router.post('/', memoryPayloadLimit, checkMemoryCreate, configMiddleware, async (req, res) => {
   const { key, value } = req.body;
 
   if (typeof key !== 'string' || key.trim() === '') {
@@ -94,13 +99,29 @@ router.post('/', checkMemoryCreate, async (req, res) => {
     return res.status(400).json({ error: 'Value is required and must be a non-empty string.' });
   }
 
+  const appConfig = req.config;
+  const memoryConfig = appConfig?.memory;
+  const charLimit = memoryConfig?.charLimit || 10000;
+
+  if (key.length > 1000) {
+    return res.status(400).json({
+      error: `Key exceeds maximum length of 1000 characters. Current length: ${key.length} characters.`,
+    });
+  }
+
+  if (value.length > charLimit) {
+    return res.status(400).json({
+      error: `Value exceeds maximum length of ${charLimit} characters. Current length: ${value.length} characters.`,
+    });
+  }
+
   try {
     const tokenCount = Tokenizer.getTokenCount(value, 'o200k_base');
 
     const memories = await getAllUserMemories(req.user.id);
 
-    // Check token limit
-    const memoryConfig = req.app.locals?.memory;
+    const appConfig = req.config;
+    const memoryConfig = appConfig?.memory;
     const tokenLimit = memoryConfig?.tokenLimit;
 
     if (tokenLimit) {
@@ -172,40 +193,80 @@ router.patch('/preferences', checkMemoryOptOut, async (req, res) => {
 /**
  * PATCH /memories/:key
  * Updates the value of an existing memory entry for the authenticated user.
- * Body: { value: string }
+ * Body: { key?: string, value: string }
  * Returns 200 and { updated: true, memory: <updatedDoc> } when successful.
  */
-router.patch('/:key', checkMemoryUpdate, async (req, res) => {
-  const { key } = req.params;
-  const { value } = req.body || {};
+router.patch('/:key', memoryPayloadLimit, checkMemoryUpdate, configMiddleware, async (req, res) => {
+  const { key: urlKey } = req.params;
+  const { key: bodyKey, value } = req.body || {};
 
   if (typeof value !== 'string' || value.trim() === '') {
     return res.status(400).json({ error: 'Value is required and must be a non-empty string.' });
+  }
+
+  const newKey = bodyKey || urlKey;
+  const appConfig = req.config;
+  const memoryConfig = appConfig?.memory;
+  const charLimit = memoryConfig?.charLimit || 10000;
+
+  if (newKey.length > 1000) {
+    return res.status(400).json({
+      error: `Key exceeds maximum length of 1000 characters. Current length: ${newKey.length} characters.`,
+    });
+  }
+
+  if (value.length > charLimit) {
+    return res.status(400).json({
+      error: `Value exceeds maximum length of ${charLimit} characters. Current length: ${value.length} characters.`,
+    });
   }
 
   try {
     const tokenCount = Tokenizer.getTokenCount(value, 'o200k_base');
 
     const memories = await getAllUserMemories(req.user.id);
-    const existingMemory = memories.find((m) => m.key === key);
+    const existingMemory = memories.find((m) => m.key === urlKey);
 
     if (!existingMemory) {
       return res.status(404).json({ error: 'Memory not found.' });
     }
 
-    const result = await setMemory({
-      userId: req.user.id,
-      key,
-      value,
-      tokenCount,
-    });
+    if (newKey !== urlKey) {
+      const keyExists = memories.find((m) => m.key === newKey);
+      if (keyExists) {
+        return res.status(409).json({ error: 'Memory with this key already exists.' });
+      }
 
-    if (!result.ok) {
-      return res.status(500).json({ error: 'Failed to update memory.' });
+      const createResult = await createMemory({
+        userId: req.user.id,
+        key: newKey,
+        value,
+        tokenCount,
+      });
+
+      if (!createResult.ok) {
+        return res.status(500).json({ error: 'Failed to create new memory.' });
+      }
+
+      const deleteResult = await deleteMemory({ userId: req.user.id, key: urlKey });
+      if (!deleteResult.ok) {
+        return res.status(500).json({ error: 'Failed to delete old memory.' });
+      }
+    } else {
+      const result = await setMemory({
+        userId: req.user.id,
+        key: newKey,
+        value,
+        tokenCount,
+      });
+
+      if (!result.ok) {
+        return res.status(500).json({ error: 'Failed to update memory.' });
+      }
     }
 
     const updatedMemories = await getAllUserMemories(req.user.id);
-    const updatedMemory = updatedMemories.find((m) => m.key === key);
+    const updatedMemory = updatedMemories.find((m) => m.key === newKey);
 
     res.json({ updated: true, memory: updatedMemory });
   } catch (error) {

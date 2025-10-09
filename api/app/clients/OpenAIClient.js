@@ -1,13 +1,15 @@
-const { OllamaClient } = require('./OllamaClient');
+const { logger } = require('@librechat/data-schemas');
 const { HttpsProxyAgent } = require('https-proxy-agent');
-const { SplitStreamHandler, CustomOpenAIClient: OpenAI } = require('@librechat/agents');
+const { sleep, SplitStreamHandler, CustomOpenAIClient: OpenAI } = require('@librechat/agents');
 const {
   isEnabled,
   Tokenizer,
   createFetch,
   resolveHeaders,
   constructAzureURL,
+  getModelMaxTokens,
   genAzureChatCompletion,
+  getModelMaxOutputTokens,
   createStreamEventHandlers,
 } = require('@librechat/api');
 const {
@@ -31,17 +33,16 @@ const {
   titleInstruction,
   createContextHandlers,
 } = require('./prompts');
-const { extractBaseURL, getModelMaxTokens, getModelMaxOutputTokens } = require('~/utils');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
-const { addSpaceIfNeeded, sleep } = require('~/server/utils');
 const { spendTokens } = require('~/models/spendTokens');
+const { addSpaceIfNeeded } = require('~/server/utils');
 const { handleOpenAIErrors } = require('./tools/util');
-const { createLLM, RunManager } = require('./llm');
+const { OllamaClient } = require('./OllamaClient');
 const { summaryBuffer } = require('./memory');
 const { runTitleChain } = require('./chains');
+const { extractBaseURL } = require('~/utils');
 const { tokenSplit } = require('./document');
 const BaseClient = require('./BaseClient');
-const { logger } = require('~/config');
 
 class OpenAIClient extends BaseClient {
   constructor(apiKey, options = {}) {
@@ -612,77 +613,8 @@ class OpenAIClient extends BaseClient {
     return (reply ?? '').trim();
   }
 
-  initializeLLM({
-    model = openAISettings.model.default,
-    modelName,
-    temperature = 0.2,
-    max_tokens,
-    streaming,
-    context,
-    tokenBuffer,
-    initialMessageCount,
-    conversationId,
-  }) {
-    const modelOptions = {
-      modelName: modelName ?? model,
-      temperature,
-      user: this.user,
-    };
-
-    if (max_tokens) {
-      modelOptions.max_tokens = max_tokens;
-    }
-
-    const configOptions = {};
-
-    if (this.langchainProxy) {
-      configOptions.basePath = this.langchainProxy;
-    }
-
-    if (this.useOpenRouter) {
-      configOptions.basePath = 'https://openrouter.ai/api/v1';
-      configOptions.baseOptions = {
-        headers: {
-          'HTTP-Referer': 'https://librechat.ai',
-          'X-Title': 'LibreChat',
-        },
-      };
-    }
-
-    const { headers } = this.options;
-    if (headers && typeof headers === 'object' && !Array.isArray(headers)) {
-      configOptions.baseOptions = {
-        headers: resolveHeaders({
-          ...headers,
-          ...configOptions?.baseOptions?.headers,
-        }),
-      };
-    }
-
-    if (this.options.proxy) {
-      configOptions.httpAgent = new HttpsProxyAgent(this.options.proxy);
-      configOptions.httpsAgent = new HttpsProxyAgent(this.options.proxy);
-    }
-
-    const { req, res, debug } = this.options;
-    const runManager = new RunManager({ req, res, debug, abortController: this.abortController });
-    this.runManager = runManager;
-
-    const llm = createLLM({
-      modelOptions,
-      configOptions,
-      openAIApiKey: this.apiKey,
-      azure: this.azure,
-      streaming,
-      callbacks: runManager.createCallbacks({
-        context,
-        tokenBuffer,
-        conversationId: this.conversationId ?? conversationId,
-        initialMessageCount,
-      }),
-    });
-
-    return llm;
+  initializeLLM() {
+    throw new Error('Deprecated');
   }
 
   /**
@@ -700,6 +632,7 @@ class OpenAIClient extends BaseClient {
    *                            In case of failure, it will return the default title, "New Chat".
    */
   async titleConvo({ text, conversationId, responseText = '' }) {
+    const appConfig = this.options.req?.config;
     this.conversationId = conversationId;
 
     if (this.options.attachments) {
@@ -728,8 +661,7 @@ class OpenAIClient extends BaseClient {
       max_tokens: 16,
     };
 
-    /** @type {TAzureConfig | undefined} */
-    const azureConfig = this.options?.req?.app?.locals?.[EModelEndpoint.azureOpenAI];
+    const azureConfig = appConfig?.endpoints?.[EModelEndpoint.azureOpenAI];
 
     const resetTitleOptions = !!(
       (this.azure && azureConfig) ||
@@ -749,7 +681,7 @@ class OpenAIClient extends BaseClient {
         groupMap,
       });
 
-      this.options.headers = resolveHeaders(headers);
+      this.options.headers = resolveHeaders({ headers });
       this.options.reverseProxyUrl = baseURL ?? null;
       this.langchainProxy = extractBaseURL(this.options.reverseProxyUrl);
       this.apiKey = azureOptions.azureOpenAIApiKey;
@@ -1118,6 +1050,7 @@ ${convo}
   }
 
   async chatCompletion({ payload, onProgress, abortController = null }) {
+    const appConfig = this.options.req?.config;
     let error = null;
     let intermediateReply = [];
     const errorCallback = (err) => (error = err);
@@ -1163,8 +1096,7 @@ ${convo}
         opts.fetchOptions.agent = new HttpsProxyAgent(this.options.proxy);
       }
 
-      /** @type {TAzureConfig | undefined} */
-      const azureConfig = this.options?.req?.app?.locals?.[EModelEndpoint.azureOpenAI];
+      const azureConfig = appConfig?.endpoints?.[EModelEndpoint.azureOpenAI];
 
       if (
         (this.azure && this.isVisionModel && azureConfig) ||
@@ -1181,7 +1113,7 @@ ${convo}
           modelGroupMap,
           groupMap,
         });
-        opts.defaultHeaders = resolveHeaders(headers);
+        opts.defaultHeaders = resolveHeaders({ headers });
         this.langchainProxy = extractBaseURL(baseURL);
         this.apiKey = azureOptions.azureOpenAIApiKey;
 
@@ -1222,7 +1154,9 @@ ${convo}
       }
 
       if (this.isOmni === true && modelOptions.max_tokens != null) {
-        modelOptions.max_completion_tokens = modelOptions.max_tokens;
+        const paramName =
+          modelOptions.useResponsesApi === true ? 'max_output_tokens' : 'max_completion_tokens';
+        modelOptions[paramName] = modelOptions.max_tokens;
         delete modelOptions.max_tokens;
       }
       if (this.isOmni === true && modelOptions.temperature != null) {

@@ -9,7 +9,27 @@ const mockPluginService = {
 
 jest.mock('~/server/services/PluginService', () => mockPluginService);
 
-const { BaseLLM } = require('@langchain/openai');
+jest.mock('~/server/services/Config', () => ({
+  getAppConfig: jest.fn().mockResolvedValue({
+    // Default app config for tool tests
+    paths: { uploads: '/tmp' },
+    fileStrategy: 'local',
+    filteredTools: [],
+    includedTools: [],
+  }),
+  getCachedTools: jest.fn().mockResolvedValue({
+    // Default cached tools for tests
+    dalle: {
+      type: 'function',
+      function: {
+        name: 'dalle',
+        description: 'DALL-E image generation',
+        parameters: {},
+      },
+    },
+  }),
+}));
+
 const { Calculator } = require('@langchain/community/tools/calculator');
 
 const { User } = require('~/db/models');
@@ -151,7 +171,6 @@ describe('Tool Handlers', () => {
     beforeAll(async () => {
       const toolMap = await loadTools({
         user: fakeUser._id,
-        model: BaseLLM,
         tools: sampleTools,
         returnMap: true,
         useSpecs: true,
@@ -245,7 +264,6 @@ describe('Tool Handlers', () => {
     it('returns an empty object when no tools are requested', async () => {
       toolFunctions = await loadTools({
         user: fakeUser._id,
-        model: BaseLLM,
         returnMap: true,
         useSpecs: true,
       });
@@ -255,7 +273,6 @@ describe('Tool Handlers', () => {
       process.env.SD_WEBUI_URL = mockCredential;
       toolFunctions = await loadTools({
         user: fakeUser._id,
-        model: BaseLLM,
         tools: ['stable-diffusion'],
         functions: true,
         returnMap: true,

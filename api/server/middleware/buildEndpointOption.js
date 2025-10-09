@@ -1,3 +1,4 @@
+const { handleError } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
 const {
   EndpointURLs,
@@ -14,7 +15,6 @@ const openAI = require('~/server/services/Endpoints/openAI');
 const agents = require('~/server/services/Endpoints/agents');
 const custom = require('~/server/services/Endpoints/custom');
 const google = require('~/server/services/Endpoints/google');
-const { handleError } = require('~/server/utils');
 
 const buildFunction = {
   [EModelEndpoint.openAI]: openAI.buildOptions,
@@ -40,9 +40,10 @@ async function buildEndpointOption(req, res, next) {
     return handleError(res, { text: 'Error parsing conversation' });
   }
 
-  if (req.app.locals.modelSpecs?.list && req.app.locals.modelSpecs?.enforce) {
+  const appConfig = req.config;
+  if (appConfig.modelSpecs?.list && appConfig.modelSpecs?.enforce) {
     /** @type {{ list: TModelSpec[] }}*/
-    const { list } = req.app.locals.modelSpecs;
+    const { list } = appConfig.modelSpecs;
     const { spec } = parsedBody;
 
     if (!spec) {

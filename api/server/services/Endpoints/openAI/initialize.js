@@ -18,6 +18,7 @@ const initializeClient = async ({
   overrideEndpoint,
   overrideModel,
 }) => {
+  const appConfig = req.config;
   const {
     PROXY,
     OPENAI_API_KEY,
@@ -64,26 +65,27 @@ const initializeClient = async ({
 
   const isAzureOpenAI = endpoint === EModelEndpoint.azureOpenAI;
   /** @type {false | TAzureConfig} */
-  const azureConfig = isAzureOpenAI && req.app.locals[EModelEndpoint.azureOpenAI];
-
+  const azureConfig = isAzureOpenAI && appConfig.endpoints?.[EModelEndpoint.azureOpenAI];
+  let serverless = false;
   if (isAzureOpenAI && azureConfig) {
     const { modelGroupMap, groupMap } = azureConfig;
     const {
       azureOptions,
       baseURL,
       headers = {},
-      serverless,
+      serverless: _serverless,
     } = mapModelToAzureConfig({
       modelName,
       modelGroupMap,
       groupMap,
     });
+    serverless = _serverless;
 
     clientOptions.reverseProxyUrl = baseURL ?? clientOptions.reverseProxyUrl;
-    clientOptions.headers = resolveHeaders(
-      { ...headers, ...(clientOptions.headers ?? {}) },
-      req.user,
-    );
+    clientOptions.headers = resolveHeaders({
+      headers: { ...headers, ...(clientOptions.headers ?? {}) },
+      user: req.user,
+    });
 
     clientOptions.titleConvo = azureConfig.titleConvo;
     clientOptions.titleModel = azureConfig.titleModel;
@@ -112,15 +114,14 @@ const initializeClient = async ({
   }
 
   /** @type {undefined | TBaseEndpoint} */
-  const openAIConfig = req.app.locals[EModelEndpoint.openAI];
+  const openAIConfig = appConfig.endpoints?.[EModelEndpoint.openAI];
 
   if (!isAzureOpenAI && openAIConfig) {
     clientOptions.streamRate = openAIConfig.streamRate;
     clientOptions.titleModel = openAIConfig.titleModel;
   }
 
-  /** @type {undefined | TBaseEndpoint} */
-  const allConfig = req.app.locals.all;
+  const allConfig = appConfig.endpoints?.all;
   if (allConfig) {
     clientOptions.streamRate = allConfig.streamRate;
   }
@@ -143,6 +144,9 @@ const initializeClient = async ({
     clientOptions = Object.assign({ modelOptions }, clientOptions);
     clientOptions.modelOptions.user = req.user.id;
     const options = getOpenAIConfig(apiKey, clientOptions);
+    if (options != null && serverless === true) {
+      options.useLegacyContent = true;
+    }
     const streamRate = clientOptions.streamRate;
     if (!streamRate) {
       return options;
