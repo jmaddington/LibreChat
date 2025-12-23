@@ -33,7 +33,8 @@ router.get('/', async (req, res) => {
   const isArchived = isEnabled(req.query.isArchived);
   const isPinned = req.query.isPinned !== undefined ? isEnabled(req.query.isPinned) : undefined;
   const search = req.query.search ? decodeURIComponent(req.query.search) : undefined;
-  const order = req.query.order || 'desc';
+  const sortBy = req.query.sortBy || 'createdAt';
+  const sortDirection = req.query.sortDirection || 'desc';
 
   let tags;
   if (req.query.tags) {
@@ -48,7 +49,8 @@ router.get('/', async (req, res) => {
       isPinned,
       tags,
       search,
-      order,
+      sortBy,
+      sortDirection,
     });
     res.status(200).json(result);
   } catch (error) {
