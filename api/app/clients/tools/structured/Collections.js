@@ -1,6 +1,7 @@
 const { Tool } = require('@langchain/core/tools');
 const { z } = require('zod');
 const { logger } = require('@librechat/data-schemas');
+const { TokenTextSplitter } = require('@langchain/textsplitters');
 
 // PostgreSQL client
 const { Pool } = require('pg');
@@ -17,7 +18,8 @@ class Collections extends Tool {
       'Store and retrieve organized knowledge in collections with hierarchical structure. ' +
       'Actions: create_collection, list_collections, search_collections, add_note, bulk_add_notes, search_notes, delete_note, update_note, update_collection, delete_collection. ' +
       'Both search_collections and search_notes require search_query parameter. ' +
-      'Supports keyword, semantic, and hybrid search across all notes. ' +
+      'Supports keyword, semantic, and hybrid search across all notes with automatic intelligent chunking for large documents. ' +
+      'Large notes (>2000 characters) are automatically chunked to improve search accuracy and provide relevant snippets. ' +
       'Use include_notes parameter with search_collections to return collection notes. ' +
       'Examples: search_collections with search_query="AI models", search_notes with search_query="machine learning" and return_mode="full". ' +
       'Perfect for maintaining organized information across multiple chat sessions.';
@@ -73,9 +75,10 @@ class Collections extends Tool {
       'Actions: create_collection, list_collections, search_collections, add_note, bulk_add_notes, search_notes, delete_note, update_note, update_collection, delete_collection. ' +
       'Search actions: search_collections and search_notes both REQUIRE search_query parameter. ' +
       'search_collections: finds collections by name/description, use include_notes=true to also return notes within found collections. ' +
-      'search_notes: finds individual notes, use return_mode "lite" (default, excludes content/tags) or "full" (includes all fields). ' +
+      'search_notes: finds individual notes, use return_mode "lite" (default, excludes content/tags) or "full" (includes all fields). Returns relevant_snippets from chunks when available. ' +
       'search_mode options: "keyword" (text search), "semantic" (meaning-based), "hybrid" (combines both, default). ' +
-      'Examples: search_collections with search_query="machine learning" and include_notes=true returns matching collections with their notes; search_notes with search_query="neural networks" and return_mode="full" returns complete note details.';
+      'Automatic Chunking: Large notes (>2000 chars) are automatically broken into searchable chunks with overlap. This improves search accuracy and provides relevant snippets without any configuration needed. ' +
+      'Examples: add_note for any content (chunking handled automatically); search_notes with search_query="neural networks" and return_mode="full" returns complete note details with relevant snippets when available.';
     this.description = description;
     this.schema = schema;
 
@@ -84,6 +87,36 @@ class Collections extends Tool {
     this.pool = null;
     // store promise so callers can await readiness before executing queries
     this.ready = this.initializeDatabase();
+  }
+  // For text chunking
+  async tokenSplit({
+    text,
+    encodingName = 'cl100k_base',
+    chunkSize = 1,
+    chunkOverlap = 0,
+    returnSize,
+  }) {
+    if (!text) {
+      return [];
+    }
+
+    const splitter = new TokenTextSplitter({
+      encodingName,
+      chunkSize,
+      chunkOverlap,
+    });
+
+    if (!returnSize) {
+      return await splitter.splitText(text);
+    }
+
+    const splitText = await splitter.splitText(text);
+
+    if (returnSize && returnSize > 0 && splitText.length > 0) {
+      return splitText.slice(-Math.abs(returnSize));
+    }
+
+    return splitText;
   }
 
   // Input sanitization methods
@@ -222,6 +255,7 @@ class Collections extends Tool {
           content TEXT NOT NULL,
           source_url TEXT,
           tags TEXT[] DEFAULT '{}',
+          is_chunked BOOLEAN DEFAULT FALSE,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -231,6 +265,29 @@ class Collections extends Tool {
       await client.query(`
         CREATE TABLE IF NOT EXISTS note_vectors (
           note_id UUID PRIMARY KEY REFERENCES notes(id) ON DELETE CASCADE,
+          embedding vector(1536)
+        )
+      `);
+
+      // Create note_chunks table for storing chunked content
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS note_chunks (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          note_id UUID REFERENCES notes(id) ON DELETE CASCADE,
+          chunk_index INTEGER NOT NULL,
+          content TEXT NOT NULL,
+          token_count INTEGER,
+          start_position INTEGER,
+          end_position INTEGER,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Create note_chunk_vectors table for chunk embeddings
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS note_chunk_vectors (
+          chunk_id UUID PRIMARY KEY REFERENCES note_chunks(id) ON DELETE CASCADE,
           embedding vector(1536)
         )
       `);
@@ -255,9 +312,25 @@ class Collections extends Tool {
       await client.query(
         'CREATE INDEX IF NOT EXISTS idx_note_vectors_embedding ON note_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)',
       );
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS idx_note_chunks_note_id ON note_chunks(note_id)',
+      );
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS idx_note_chunks_chunk_index ON note_chunks(note_id, chunk_index)',
+      );
+      await client.query(
+        'CREATE INDEX IF NOT EXISTS idx_note_chunk_vectors_embedding ON note_chunk_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)',
+      );
+
+      // Add is_chunked column to existing notes table if it doesn't exist
+      await client.query(`
+        ALTER TABLE notes 
+        ADD COLUMN IF NOT EXISTS is_chunked BOOLEAN DEFAULT FALSE
+      `);
 
       // Analyze the note_vectors table to make the ivfflat index usable
       await client.query('ANALYZE note_vectors;');
+      await client.query('ANALYZE note_chunk_vectors;');
     } finally {
       client.release();
     }
@@ -315,6 +388,119 @@ class Collections extends Tool {
       logger.error('Failed to generate embedding:', error.message || error);
       return null;
     }
+  }
+
+  async createNoteChunks(noteId, title, content, chunkSize = 1000, chunkOverlap = 100) {
+    try {
+      // Combine title and content for chunking
+      const fullText = `${title}\n\n${content}`;
+
+      // Check if content is large enough to warrant chunking
+      if (fullText.length <= chunkSize * 2) {
+        // For smaller content, don't chunk - just create one chunk
+        return [
+          {
+            content: fullText,
+            chunk_index: 0,
+            start_position: 0,
+            end_position: fullText.length,
+            token_count: Math.ceil(fullText.length / 4), // Rough token estimate
+          },
+        ];
+      }
+
+      // Use the existing tokenSplit function
+      const chunks = await this.tokenSplit({
+        text: fullText,
+        chunkSize: chunkSize,
+        chunkOverlap: chunkOverlap,
+        encodingName: 'cl100k_base',
+      });
+
+      // Calculate positions and create chunk objects
+      const chunkObjects = [];
+      let currentPosition = 0;
+
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const startPos = i === 0 ? 0 : Math.max(0, currentPosition - chunkOverlap);
+        const endPos = startPos + chunk.length;
+
+        chunkObjects.push({
+          content: chunk,
+          chunk_index: i,
+          start_position: startPos,
+          end_position: endPos,
+          token_count: Math.ceil(chunk.length / 4), // Rough token estimate
+        });
+
+        currentPosition = endPos;
+      }
+
+      return chunkObjects;
+    } catch (error) {
+      logger.error('Failed to create note chunks:', error);
+      throw error;
+    }
+  }
+
+  async storeNoteChunks(client, noteId, chunkObjects) {
+    try {
+      const storedChunks = [];
+
+      for (const chunkObj of chunkObjects) {
+        // Insert chunk
+        const chunkResult = await client.query(
+          `INSERT INTO note_chunks (note_id, chunk_index, content, token_count, start_position, end_position) 
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [
+            noteId,
+            chunkObj.chunk_index,
+            chunkObj.content,
+            chunkObj.token_count,
+            chunkObj.start_position,
+            chunkObj.end_position,
+          ],
+        );
+
+        const chunk = chunkResult.rows[0];
+
+        // Generate and store embedding for this chunk
+        const embedding = await this.generateEmbedding(chunkObj.content);
+        if (embedding) {
+          await client.query(
+            'INSERT INTO note_chunk_vectors (chunk_id, embedding) VALUES ($1, $2)',
+            [chunk.id, `[${embedding.join(',')}]`],
+          );
+          logger.debug(`Embedding stored for chunk ${chunk.id}`);
+        } else {
+          logger.warn(`Failed to generate embedding for chunk ${chunk.id}`);
+        }
+
+        storedChunks.push(chunk);
+      }
+
+      return storedChunks;
+    } catch (error) {
+      logger.error('Failed to store note chunks:', error);
+      throw error;
+    }
+  }
+
+  async deleteNoteChunks(client, noteId) {
+    try {
+      // Delete chunks and their vectors (cascade should handle vectors)
+      await client.query('DELETE FROM note_chunks WHERE note_id = $1', [noteId]);
+      logger.debug(`Deleted chunks for note ${noteId}`);
+    } catch (error) {
+      logger.error('Failed to delete note chunks:', error);
+      throw error;
+    }
+  }
+
+  async shouldUseChunking(content, chunkSize = 1000) {
+    // Automatically use chunking for content longer than 2x chunk size
+    return content && content.length > chunkSize * 2;
   }
 
   async createCollection(name, description = '', tags = [], parentId = null) {
@@ -810,7 +996,7 @@ class Collections extends Tool {
     }));
   }
 
-  async addNote(collectionId, title, content, sourceUrl = null, tags = []) {
+  async addNote(collectionId, title, content, sourceUrl = null, tags = [], chunkSize = 1000) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -839,27 +1025,49 @@ class Collections extends Tool {
         throw new Error('Collection not found or access denied');
       }
 
+      // Check if we should use chunking
+      const useChunking = await this.shouldUseChunking(sanitizedContent, chunkSize);
+
       // Insert note
       const noteResult = await client.query(
-        'INSERT INTO notes (collection_id, title, content, source_url, tags) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [collectionId, sanitizedTitle, sanitizedContent, sanitizedSourceUrl, sanitizedTags],
+        'INSERT INTO notes (collection_id, title, content, source_url, tags, is_chunked) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [
+          collectionId,
+          sanitizedTitle,
+          sanitizedContent,
+          sanitizedSourceUrl,
+          sanitizedTags,
+          useChunking,
+        ],
       );
 
       const note = noteResult.rows[0];
 
-      // Generate and store embedding
-      const embedding = await this.generateEmbedding(`${title}\n\n${content}`);
-      if (embedding) {
-        // Use parameterized query for embedding insertion
-        await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
+      if (useChunking) {
+        // Create and store chunks
+        const chunkObjects = await this.createNoteChunks(
           note.id,
-          `[${embedding.join(',')}]`,
-        ]);
-        logger.debug(`Embedding stored for note ${note.id}`);
-      } else {
-        logger.warn(
-          `Failed to generate embedding for note ${note.id} - semantic search will not include this note`,
+          sanitizedTitle,
+          sanitizedContent,
+          chunkSize,
         );
+        await this.storeNoteChunks(client, note.id, chunkObjects);
+        logger.debug(`Note ${note.id} chunked into ${chunkObjects.length} chunks`);
+      } else {
+        // Generate and store embedding for full note
+        const embedding = await this.generateEmbedding(`${title}\n\n${content}`);
+        if (embedding) {
+          // Use parameterized query for embedding insertion
+          await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
+            note.id,
+            `[${embedding.join(',')}]`,
+          ]);
+          logger.debug(`Embedding stored for note ${note.id}`);
+        } else {
+          logger.warn(
+            `Failed to generate embedding for note ${note.id} - semantic search will not include this note`,
+          );
+        }
       }
 
       // Update collection timestamp
@@ -879,7 +1087,7 @@ class Collections extends Tool {
     }
   }
 
-  async bulkAddNotes(collectionId, notes) {
+  async bulkAddNotes(collectionId, notes, chunkSize = 1000) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -917,28 +1125,50 @@ class Collections extends Tool {
             throw new Error('Note content is required and cannot be empty');
           }
 
+          // Check if we should use chunking
+          const useChunking = await this.shouldUseChunking(sanitizedContent, chunkSize);
+
           // Insert note
           const noteResult = await client.query(
-            'INSERT INTO notes (collection_id, title, content, source_url, tags) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [collectionId, sanitizedTitle, sanitizedContent, sanitizedSourceUrl, sanitizedTags],
+            'INSERT INTO notes (collection_id, title, content, source_url, tags, is_chunked) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [
+              collectionId,
+              sanitizedTitle,
+              sanitizedContent,
+              sanitizedSourceUrl,
+              sanitizedTags,
+              useChunking,
+            ],
           );
 
           const note = noteResult.rows[0];
 
-          // Generate and store embedding
-          const embedding = await this.generateEmbedding(
-            `${noteData.title}\n\n${noteData.content}`,
-          );
-          if (embedding) {
-            await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
+          if (useChunking) {
+            // Create and store chunks
+            const chunkObjects = await this.createNoteChunks(
               note.id,
-              `[${embedding.join(',')}]`,
-            ]);
-            logger.debug(`Embedding stored for note ${note.id}`);
-          } else {
-            logger.warn(
-              `Failed to generate embedding for note ${note.id} - semantic search will not include this note`,
+              sanitizedTitle,
+              sanitizedContent,
+              chunkSize,
             );
+            await this.storeNoteChunks(client, note.id, chunkObjects);
+            logger.debug(`Note ${note.id} chunked into ${chunkObjects.length} chunks`);
+          } else {
+            // Generate and store embedding for full note
+            const embedding = await this.generateEmbedding(
+              `${noteData.title}\n\n${noteData.content}`,
+            );
+            if (embedding) {
+              await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
+                note.id,
+                `[${embedding.join(',')}]`,
+              ]);
+              logger.debug(`Embedding stored for note ${note.id}`);
+            } else {
+              logger.warn(
+                `Failed to generate embedding for note ${note.id} - semantic search will not include this note`,
+              );
+            }
           }
 
           createdNotes.push(note);
@@ -979,7 +1209,7 @@ class Collections extends Tool {
     }
   }
 
-  async updateNote(noteId, updates = {}) {
+  async updateNote(noteId, updates = {}, chunkSize = 1000) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
@@ -1049,6 +1279,36 @@ class Collections extends Tool {
         queryParams.push(updates.collection_id);
       }
 
+      // If title or content changed, determine if we need to update chunking
+      if (updates.title !== undefined || updates.content !== undefined) {
+        const title = updates.title || note.title;
+        const content = updates.content || note.content;
+        const useChunking = await this.shouldUseChunking(content, chunkSize);
+
+        updateFields.push(`is_chunked = $${paramCounter++}`);
+        queryParams.push(useChunking);
+
+        // Delete existing chunks and vectors
+        await this.deleteNoteChunks(client, noteId);
+        await client.query('DELETE FROM note_vectors WHERE note_id = $1', [noteId]);
+
+        if (useChunking) {
+          // Create and store new chunks
+          const chunkObjects = await this.createNoteChunks(noteId, title, content, chunkSize);
+          await this.storeNoteChunks(client, noteId, chunkObjects);
+          logger.debug(`Note ${noteId} re-chunked into ${chunkObjects.length} chunks`);
+        } else {
+          // Generate and store embedding for full note
+          const embedding = await this.generateEmbedding(`${title}\n\n${content}`);
+          if (embedding) {
+            await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
+              noteId,
+              `[${embedding.join(',')}]`,
+            ]);
+          }
+        }
+      }
+
       // Always update the updated_at timestamp
       updateFields.push('updated_at = CURRENT_TIMESTAMP');
 
@@ -1067,24 +1327,6 @@ class Collections extends Tool {
 
       const noteResult = await client.query(query, queryParams);
       const updatedNote = noteResult.rows[0];
-
-      // If title or content changed, update the embedding
-      if (updates.title !== undefined || updates.content !== undefined) {
-        const title = updates.title || note.title;
-        const content = updates.content || note.content;
-
-        const embedding = await this.generateEmbedding(`${title}\n\n${content}`);
-        if (embedding) {
-          // Delete existing embedding if it exists
-          await client.query('DELETE FROM note_vectors WHERE note_id = $1', [noteId]);
-
-          // Insert new embedding using parameterized query
-          await client.query('INSERT INTO note_vectors (note_id, embedding) VALUES ($1, $2)', [
-            noteId,
-            `[${embedding.join(',')}]`,
-          ]);
-        }
-      }
 
       // Update collection timestamp
       await client.query('UPDATE collections SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [
@@ -1155,16 +1397,16 @@ class Collections extends Tool {
         paramCount++;
         const selectFields =
           returnMode === 'lite'
-            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, c.name as collection_name'
+            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, n.is_chunked, c.name as collection_name'
             : 'n.*, c.name as collection_name';
         const scoreField =
           returnMode === 'lite'
             ? "ts_rank(to_tsvector('english', n.content), plainto_tsquery('english', $" +
-              paramCount +
-              ')) as score'
+            paramCount +
+            ')) as score'
             : "ts_rank(to_tsvector('english', n.content), plainto_tsquery('english', $" +
-              paramCount +
-              ')) as score';
+            paramCount +
+            ')) as score';
 
         const query = `
           SELECT ${selectFields}, ${scoreField}
@@ -1177,10 +1419,24 @@ class Collections extends Tool {
         `;
         queryParams.push(sanitizedSearchQuery, limit);
         const result = await client.query(query, queryParams);
-        const notes = result.rows;
+        let notes = result.rows;
 
         // Add collection paths to notes
-        return await this.addCollectionPathsToNotes(client, notes);
+        notes = await this.addCollectionPathsToNotes(client, notes);
+
+        // Add relevant snippets for chunked notes
+        for (const note of notes) {
+          if (note.is_chunked) {
+            note.relevant_snippets = await this.getRelevantSnippets(
+              client,
+              note.id,
+              sanitizedSearchQuery,
+              'keyword',
+            );
+          }
+        }
+
+        return notes;
       } else if (searchMode === 'semantic') {
         const queryEmbedding = await this.generateEmbedding(sanitizedSearchQuery);
         if (!queryEmbedding) {
@@ -1192,7 +1448,7 @@ class Collections extends Tool {
         paramCount++;
         const selectFields =
           returnMode === 'lite'
-            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, c.name as collection_name'
+            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, n.is_chunked, c.name as collection_name'
             : 'n.*, c.name as collection_name';
 
         const query = `
@@ -1210,10 +1466,25 @@ class Collections extends Tool {
         `;
         queryParams.push(limit);
         const result = await client.query(query, queryParams);
-        const notes = result.rows;
+        let notes = result.rows;
 
         // Add collection paths to notes
-        return await this.addCollectionPathsToNotes(client, notes);
+        notes = await this.addCollectionPathsToNotes(client, notes);
+
+        // Add relevant snippets for chunked notes
+        for (const note of notes) {
+          if (note.is_chunked) {
+            note.relevant_snippets = await this.getRelevantSnippets(
+              client,
+              note.id,
+              sanitizedSearchQuery,
+              'semantic',
+              queryEmbedding,
+            );
+          }
+        }
+
+        return notes;
       } else if (searchMode === 'hybrid') {
         const queryEmbedding = await this.generateEmbedding(sanitizedSearchQuery);
         if (!queryEmbedding) {
@@ -1241,7 +1512,7 @@ class Collections extends Tool {
 
         const selectFields =
           returnMode === 'lite'
-            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, c.name as collection_name'
+            ? 'n.id, n.collection_id, n.title, n.source_url, n.created_at, n.is_chunked, c.name as collection_name'
             : 'n.*, c.name as collection_name';
 
         const query = `
@@ -1273,13 +1544,98 @@ class Collections extends Tool {
         `;
         queryParams.push(sanitizedSearchQuery, limit);
         const result = await client.query(query, queryParams);
-        const notes = result.rows;
+        let notes = result.rows;
 
         // Add collection paths to notes
-        return await this.addCollectionPathsToNotes(client, notes);
+        notes = await this.addCollectionPathsToNotes(client, notes);
+
+        // Add relevant snippets for chunked notes
+        for (const note of notes) {
+          if (note.is_chunked) {
+            note.relevant_snippets = await this.getRelevantSnippets(
+              client,
+              note.id,
+              sanitizedSearchQuery,
+              'hybrid',
+              queryEmbedding,
+            );
+          }
+        }
+
+        return notes;
       }
     } finally {
       client.release();
+    }
+  }
+
+  async getRelevantSnippets(client, noteId, searchQuery, searchMode, queryEmbedding = null) {
+    try {
+      let query;
+      let params;
+
+      if (searchMode === 'keyword') {
+        query = `
+          SELECT content, chunk_index, 
+                 ts_rank(to_tsvector('english', content), plainto_tsquery('english', $2)) as score
+          FROM note_chunks
+          WHERE note_id = $1
+          AND to_tsvector('english', content) @@ plainto_tsquery('english', $2)
+          ORDER BY score DESC
+          LIMIT 3
+        `;
+        params = [noteId, searchQuery];
+      } else if (searchMode === 'semantic' && queryEmbedding) {
+        query = `
+          SELECT nc.content, nc.chunk_index,
+                 (1 - (ncv.embedding <=> '[${queryEmbedding.join(',')}]')) as score
+          FROM note_chunks nc
+          JOIN note_chunk_vectors ncv ON nc.id = ncv.chunk_id
+          WHERE nc.note_id = $1
+          ORDER BY score DESC
+          LIMIT 3
+        `;
+        params = [noteId];
+      } else if (searchMode === 'hybrid' && queryEmbedding) {
+        query = `
+          WITH keyword_chunks AS (
+            SELECT nc.id, nc.content, nc.chunk_index,
+                   ts_rank(to_tsvector('english', nc.content), plainto_tsquery('english', $2)) as keyword_score
+            FROM note_chunks nc
+            WHERE nc.note_id = $1
+            AND to_tsvector('english', nc.content) @@ plainto_tsquery('english', $2)
+          ),
+          semantic_chunks AS (
+            SELECT nc.id, nc.content, nc.chunk_index,
+                   (1 - (ncv.embedding <=> '[${queryEmbedding.join(',')}]')) as semantic_score
+            FROM note_chunks nc
+            JOIN note_chunk_vectors ncv ON nc.id = ncv.chunk_id
+            WHERE nc.note_id = $1
+          )
+          SELECT DISTINCT nc.content, nc.chunk_index,
+                 COALESCE(k.keyword_score * 0.3, 0) + COALESCE(s.semantic_score * 0.7, 0) as score
+          FROM note_chunks nc
+          LEFT JOIN keyword_chunks k ON nc.id = k.id
+          LEFT JOIN semantic_chunks s ON nc.id = s.id
+          WHERE nc.note_id = $1
+          AND (k.keyword_score IS NOT NULL OR s.semantic_score IS NOT NULL)
+          ORDER BY score DESC
+          LIMIT 3
+        `;
+        params = [noteId, searchQuery];
+      } else {
+        return [];
+      }
+
+      const result = await client.query(query, params);
+      return result.rows.map((row) => ({
+        content: row.content,
+        chunk_index: row.chunk_index,
+        score: row.score,
+      }));
+    } catch (error) {
+      logger.error('Failed to get relevant snippets:', error);
+      return [];
     }
   }
 
@@ -1635,25 +1991,27 @@ class Collections extends Tool {
           const mappedNotes =
             return_mode === 'lite'
               ? notes.map((n) => ({
-                  id: n.id,
-                  collection_id: n.collection_id,
-                  collection_name: n.collection_name,
-                  title: n.title,
-                  source_url: n.source_url,
-                  score: n.score,
-                  created_at: n.created_at,
-                }))
+                id: n.id,
+                collection_id: n.collection_id,
+                collection_name: n.collection_name,
+                title: n.title,
+                source_url: n.source_url,
+                score: n.score,
+                created_at: n.created_at,
+                relevant_snippets: n.relevant_snippets,
+              }))
               : notes.map((n) => ({
-                  id: n.id,
-                  collection_id: n.collection_id,
-                  collection_name: n.collection_name,
-                  title: n.title,
-                  content: n.content,
-                  source_url: n.source_url,
-                  tags: n.tags,
-                  score: n.score,
-                  created_at: n.created_at,
-                }));
+                id: n.id,
+                collection_id: n.collection_id,
+                collection_name: n.collection_name,
+                title: n.title,
+                content: n.content,
+                source_url: n.source_url,
+                tags: n.tags,
+                score: n.score,
+                created_at: n.created_at,
+                relevant_snippets: n.relevant_snippets,
+              }));
 
           return JSON.stringify({
             success: true,
