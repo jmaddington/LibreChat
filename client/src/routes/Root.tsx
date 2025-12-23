@@ -18,11 +18,16 @@ import {
   FileMapContext,
 } from '~/Providers';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
-import { TermsAndConditionsModal } from '~/components/ui/TermsAndConditionsModal';
+import { TermsAndConditionsModal } from '~/components/ui';
 import { Nav, MobileNav } from '~/components/Nav';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandleAlt } from '~/components/ui/Resizable';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandleAlt,
+  useMediaQuery,
+} from '@librechat/client';
 import { normalizeLayout } from '~/utils';
 
 export default function Root() {

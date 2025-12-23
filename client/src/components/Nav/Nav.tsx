@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, memo, lazy, Suspense, useRef } from 'react';
 import { useRecoilValue } from 'recoil';
+import { List } from 'react-virtualized';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Skeleton, useMediaQuery } from '@librechat/client';
 import { PermissionTypes, Permissions } from 'librechat-data-provider';
@@ -22,8 +23,8 @@ import store from '~/store';
 const BookmarkNav = lazy(() => import('./Bookmarks/BookmarkNav'));
 const AccountSettings = lazy(() => import('./AccountSettings'));
 
-const NAV_WIDTH_DESKTOP = '260px';
-const NAV_WIDTH_MOBILE = '320px';
+const NAV_WIDTH_DESKTOP = 260;
+const NAV_WIDTH_MOBILE = 320;
 
 const SearchBarSkeleton = memo(() => (
   <div className={cn('flex h-10 items-center py-2')}>
@@ -55,9 +56,9 @@ const MemoNewChat = memo(NewChat);
 
 const Nav = memo(
   ({
-    navVisible,
-    setNavVisible,
-  }: {
+     navVisible,
+     setNavVisible,
+   }: {
     navVisible: boolean;
     setNavVisible: React.Dispatch<React.SetStateAction<boolean>>;
   }) => {

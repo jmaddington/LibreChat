@@ -8,7 +8,7 @@ import type { TConversation } from 'librechat-data-provider';
 import { useLocalize, TranslationKeys, useFavorites, useShowMarketplace } from '~/hooks';
 import FavoritesList from '~/components/Nav/Favorites/FavoritesList';
 import PinnedConversations from './PinnedConversations';
-import { dateKeys, groupConversationsByDate, cn } from '~/utils';
+import { groupConversationsByDate, cn, dateKeys } from '~/utils';
 import Convo from './Convo';
 import store from '~/store';
 
@@ -21,9 +21,11 @@ export type MeasuredCellParent = {
   invalidateCellSizeAfterRender?: ((cell: CellPosition) => void) | undefined;
   recomputeGridSize?: ((cell: CellPosition) => void) | undefined;
 };
+import { isToday, parseISO } from 'date-fns';
 
 interface ConversationsProps {
   conversations: Array<TConversation | null>;
+  pinnedConversations: Array<TConversation | null>;
   moveToTop: () => void;
   toggleNav: () => void;
   containerRef: React.RefObject<List>;
@@ -118,36 +120,46 @@ type FlattenedItem =
 
 const MemoizedConvo = memo(
   ({
-    conversation,
-    retainView,
-    toggleNav,
-  }: {
+     conversation,
+     retainView,
+     toggleNav,
+     isLatestConvo,
+   }: {
     conversation: TConversation;
     retainView: () => void;
     toggleNav: () => void;
+    isLatestConvo: boolean;
   }) => {
-    return <Convo conversation={conversation} retainView={retainView} toggleNav={toggleNav} />;
+    return (
+      <Convo
+        conversation={conversation}
+        retainView={retainView}
+        toggleNav={toggleNav}
+        isLatestConvo={isLatestConvo}
+      />
+    );
   },
   (prevProps, nextProps) => {
     return (
       prevProps.conversation.conversationId === nextProps.conversation.conversationId &&
       prevProps.conversation.title === nextProps.conversation.title &&
+      prevProps.isLatestConvo === nextProps.isLatestConvo &&
       prevProps.conversation.endpoint === nextProps.conversation.endpoint
     );
   },
 );
 
 const Conversations: FC<ConversationsProps> = ({
-  conversations: rawConversations,
-  moveToTop,
-  toggleNav,
-  containerRef,
-  loadMoreConversations,
-  isLoading,
-  isSearchLoading,
-  isChatsExpanded,
-  setIsChatsExpanded,
-}) => {
+                                                 conversations: rawConversations,
+                                                 moveToTop,
+                                                 toggleNav,
+                                                 containerRef,
+                                                 loadMoreConversations,
+                                                 isLoading,
+                                                 isSearchLoading,
+                                                 isChatsExpanded,
+                                                 setIsChatsExpanded,
+                                               }) => {
   const localize = useLocalize();
   const search = useRecoilValue(store.search);
   const { favorites, isLoading: isFavoritesLoading } = useFavorites();
@@ -166,6 +178,13 @@ const Conversations: FC<ConversationsProps> = ({
 
   const groupedConversations = useMemo(
     () => groupConversationsByDate(filteredConversations),
+    [filteredConversations],
+  );
+
+  const firstTodayConvoId = useMemo(
+    () =>
+      filteredConversations.find((convo) => convo.updatedAt && isToday(parseISO(convo.updatedAt)))
+        ?.conversationId ?? undefined,
     [filteredConversations],
   );
 
@@ -189,6 +208,10 @@ const Conversations: FC<ConversationsProps> = ({
 
   const flattenedItems = useMemo(() => {
     const items: FlattenedItem[] = [];
+    nonPinnedGroupedConversations.forEach(([groupName, convos]) => {
+      items.push({ type: 'header', groupName });
+      items.push(...convos.map((convo) => ({ type: 'convo' as const, convo })));
+    });
     // Only include favorites row if FavoritesList will render content
     if (shouldShowFavorites) {
       items.push({ type: 'favorites' });
@@ -206,7 +229,13 @@ const Conversations: FC<ConversationsProps> = ({
       }
     }
     return items;
-  }, [groupedConversations, isLoading, isChatsExpanded, shouldShowFavorites]);
+  }, [
+    nonPinnedGroupedConversations,
+    groupedConversations,
+    isLoading,
+    isChatsExpanded,
+    shouldShowFavorites,
+  ]);
 
   // Store flattenedItems in a ref for keyMapper to access without recreating cache
   const flattenedItemsRef = useRef(flattenedItems);
@@ -313,7 +342,12 @@ const Conversations: FC<ConversationsProps> = ({
       if (item.type === 'convo') {
         return (
           <MeasuredRow key={key} {...rowProps}>
-            <MemoizedConvo conversation={item.convo} retainView={moveToTop} toggleNav={toggleNav} />
+            <MemoizedConvo
+              conversation={item.convo}
+              retainView={moveToTop}
+              toggleNav={toggleNav}
+              isLatestConvo={item.convo.conversationId === firstTodayConvoId}
+            />
           </MeasuredRow>
         );
       }
@@ -323,6 +357,7 @@ const Conversations: FC<ConversationsProps> = ({
     [
       cache,
       flattenedItems,
+      firstTodayConvoId,
       moveToTop,
       toggleNav,
       clearFavoritesCache,
@@ -360,7 +395,8 @@ const Conversations: FC<ConversationsProps> = ({
           <span className="ml-2 text-text-primary">{localize('com_ui_loading')}</span>
         </div>
       ) : (
-        <div className="flex-1">
+        <div className="flex flex-1 flex-col">
+          <PinnedConversations pinnedConversations={pinnedConversations} toggleNav={toggleNav} />
           <AutoSizer>
             {({ width, height }) => (
               <List

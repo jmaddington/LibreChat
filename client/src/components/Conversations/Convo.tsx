@@ -19,9 +19,10 @@ interface ConversationProps {
   conversation: TConversation;
   retainView: () => void;
   toggleNav: () => void;
+  isLatestConvo: boolean;
 }
 
-export default function Conversation({ conversation, retainView, toggleNav }: ConversationProps) {
+export default function Conversation({ conversation, retainView, toggleNav, isLatestConvo }: ConversationProps) {
   const params = useParams();
   const localize = useLocalize();
   const { showToast } = useToastContext();
