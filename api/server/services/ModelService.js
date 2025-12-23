@@ -1,13 +1,13 @@
 const axios = require('axios');
 const { Providers } = require('@librechat/agents');
-const { logAxiosError } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const { logAxiosError, inputSchema, processModelData } = require('@librechat/api');
 const { EModelEndpoint, defaultModels, CacheKeys } = require('librechat-data-provider');
-const { inputSchema, extractBaseURL, processModelData } = require('~/utils');
 const { OllamaClient } = require('~/app/clients/OllamaClient');
 const { isUserProvided } = require('~/server/utils');
 const getLogStores = require('~/cache/getLogStores');
+const { extractBaseURL } = require('~/utils');
 
 /**
  * Splits a string by commas and trims each resulting value.
@@ -34,24 +34,31 @@ const { openAIApiKey, userProvidedOpenAI } = require('./Config/EndpointService')
  * @param {string} params.apiKey - The API key for authentication with the API.
  * @param {string} params.baseURL - The base path URL for the API.
  * @param {string} [params.name='OpenAI'] - The name of the API; defaults to 'OpenAI'.
+ * @param {boolean} [params.direct=false] - Whether `directEndpoint` was configured
  * @param {boolean} [params.azure=false] - Whether to fetch models from Azure.
  * @param {boolean} [params.userIdQuery=false] - Whether to send the user ID as a query parameter.
  * @param {boolean} [params.createTokenConfig=true] - Whether to create a token configuration from the API response.
  * @param {string} [params.tokenKey] - The cache key to save the token configuration. Uses `name` if omitted.
+ * @param {Record<string, string>} [params.headers] - Optional headers for the request.
+ * @param {Partial<IUser>} [params.userObject] - Optional user object for header resolution.
  * @returns {Promise<string[]>} A promise that resolves to an array of model identifiers.
  * @async
  */
 const fetchModels = async ({
   user,
   apiKey,
-  baseURL,
+  baseURL: _baseURL,
   name = EModelEndpoint.openAI,
+  direct,
   azure = false,
   userIdQuery = false,
   createTokenConfig = true,
   tokenKey,
+  headers,
+  userObject,
 }) => {
   let models = [];
+  const baseURL = direct ? extractBaseURL(_baseURL) : _baseURL;
 
   if (!baseURL && !azure) {
     return models;
@@ -62,7 +69,13 @@ const fetchModels = async ({
   }
 
   if (name && name.toLowerCase().startsWith(Providers.OLLAMA)) {
-    return await OllamaClient.fetchModels(baseURL);
+    try {
+      return await OllamaClient.fetchModels(baseURL, { headers, user: userObject });
+    } catch (ollamaError) {
+      const logMessage =
+        'Failed to fetch models from Ollama API. Attempting to fetch via OpenAI-compatible endpoint.';
+      logAxiosError({ message: logMessage, error: ollamaError });
+    }
   }
 
   try {

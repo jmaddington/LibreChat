@@ -1,35 +1,55 @@
+const { z } = require('zod');
 const fs = require('fs').promises;
 const { nanoid } = require('nanoid');
 const { logger } = require('@librechat/data-schemas');
 const {
+  agentCreateSchema,
+  agentUpdateSchema,
+  mergeAgentOcrConversion,
+  convertOcrToContextInPlace,
+} = require('@librechat/api');
+const {
   Tools,
   Constants,
-  FileSources,
   SystemRoles,
+  FileSources,
+  ResourceType,
+  AccessRoleIds,
+  PrincipalType,
   EToolResources,
+  PermissionBits,
   actionDelimiter,
+  removeNullishValues,
 } = require('librechat-data-provider');
 const {
-  getAgent,
+  getListAgentsByAccess,
+  countPromotedAgents,
+  revertAgentVersion,
   createAgent,
   updateAgent,
   deleteAgent,
-  getListAgents,
+  getAgent,
 } = require('~/models/Agent');
+const {
+  findPubliclyAccessibleResources,
+  findAccessibleResources,
+  hasPublicPermission,
+  grantPermission,
+} = require('~/server/services/PermissionService');
 const { getStrategyFunctions } = require('~/server/services/Files/strategies');
 const { resizeAvatar } = require('~/server/services/Files/images/avatar');
+const { getFileStrategy } = require('~/server/utils/getFileStrategy');
 const { refreshS3Url } = require('~/server/services/Files/S3/crud');
 const { filterFile } = require('~/server/services/Files/process');
 const { updateAction, getActions } = require('~/models/Action');
 const { getCachedTools } = require('~/server/services/Config');
-const { updateAgentProjects } = require('~/models/Agent');
-const { getProjectByName } = require('~/models/Project');
-const { revertAgentVersion } = require('~/models/Agent');
 const { deleteFileByFilter } = require('~/models/File');
+const { getCategoriesWithCounts } = require('~/models');
 
 const systemTools = {
   [Tools.execute_code]: true,
   [Tools.file_search]: true,
+  [Tools.web_search]: true,
 };
 
 /**
@@ -38,39 +58,58 @@ const systemTools = {
  * @param {ServerRequest} req - The request object.
  * @param {AgentCreateParams} req.body - The request body.
  * @param {ServerResponse} res - The response object.
- * @returns {Agent} 201 - success response - application/json
+ * @returns {Promise<Agent>} 201 - success response - application/json
  */
 const createAgentHandler = async (req, res) => {
   try {
-    const { tools = [], provider, name, description, instructions, model, ...agentData } = req.body;
+    const validatedData = agentCreateSchema.parse(req.body);
+    const { tools = [], ...agentData } = removeNullishValues(validatedData);
+
     const { id: userId } = req.user;
 
+    agentData.id = `agent_${nanoid()}`;
+    agentData.author = userId;
     agentData.tools = [];
 
-    const availableTools = await getCachedTools({ includeGlobal: true });
+    const availableTools = await getCachedTools();
     for (const tool of tools) {
       if (availableTools[tool]) {
         agentData.tools.push(tool);
-      }
-
-      if (systemTools[tool]) {
+      } else if (systemTools[tool]) {
+        agentData.tools.push(tool);
+      } else if (tool.includes(Constants.mcp_delimiter)) {
         agentData.tools.push(tool);
       }
     }
 
-    Object.assign(agentData, {
-      author: userId,
-      name,
-      description,
-      instructions,
-      provider,
-      model,
-    });
-
-    agentData.id = `agent_${nanoid()}`;
     const agent = await createAgent(agentData);
+
+    // Automatically grant owner permissions to the creator
+    try {
+      await grantPermission({
+        principalType: PrincipalType.USER,
+        principalId: userId,
+        resourceType: ResourceType.AGENT,
+        resourceId: agent._id,
+        accessRoleId: AccessRoleIds.AGENT_OWNER,
+        grantedBy: userId,
+      });
+      logger.debug(
+        `[createAgent] Granted owner permissions to user ${userId} for agent ${agent.id}`,
+      );
+    } catch (permissionError) {
+      logger.error(
+        `[createAgent] Failed to grant owner permissions for agent ${agent.id}:`,
+        permissionError,
+      );
+    }
+
     res.status(201).json(agent);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.error('[/Agents] Validation error', error.errors);
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+    }
     logger.error('[/Agents] Error creating agent', error);
     res.status(500).json({ error: error.message });
   }
@@ -87,21 +126,14 @@ const createAgentHandler = async (req, res) => {
  * @returns {Promise<Agent>} 200 - success response - application/json
  * @returns {Error} 404 - Agent not found
  */
-const getAgentHandler = async (req, res) => {
+const getAgentHandler = async (req, res, expandProperties = false) => {
   try {
     const id = req.params.id;
     const author = req.user.id;
 
-    let query = { id, author };
-
-    const globalProject = await getProjectByName(Constants.GLOBAL_PROJECT_NAME, ['agentIds']);
-    if (globalProject && (globalProject.agentIds?.length ?? 0) > 0) {
-      query = {
-        $or: [{ id, $in: globalProject.agentIds }, query],
-      };
-    }
-
-    const agent = await getAgent(query);
+    // Permissions are validated by middleware before calling this function
+    // Simply load the agent by ID
+    const agent = await getAgent({ id });
 
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
@@ -118,23 +150,45 @@ const getAgentHandler = async (req, res) => {
     }
 
     agent.author = agent.author.toString();
+
+    // @deprecated - isCollaborative replaced by ACL permissions
     agent.isCollaborative = !!agent.isCollaborative;
+
+    // Check if agent is public
+    const isPublic = await hasPublicPermission({
+      resourceType: ResourceType.AGENT,
+      resourceId: agent._id,
+      requiredPermissions: PermissionBits.VIEW,
+    });
+    agent.isPublic = isPublic;
 
     if (agent.author !== author) {
       delete agent.author;
     }
 
-    if (!agent.isCollaborative && agent.author !== author && req.user.role !== SystemRoles.ADMIN) {
+    if (!expandProperties) {
+      // VIEW permission: Basic agent info only
       return res.status(200).json({
+        _id: agent._id,
         id: agent.id,
         name: agent.name,
+        description: agent.description,
         avatar: agent.avatar,
         author: agent.author,
+        provider: agent.provider,
+        model: agent.model,
         projectIds: agent.projectIds,
+        // @deprecated - isCollaborative replaced by ACL permissions
         isCollaborative: agent.isCollaborative,
+        isPublic: agent.isPublic,
         version: agent.version,
+        // Safe metadata
+        createdAt: agent.createdAt,
+        updatedAt: agent.updatedAt,
       });
     }
+
+    // EDIT permission: Full agent details including sensitive configuration
     return res.status(200).json(agent);
   } catch (error) {
     logger.error('[/Agents/:id] Error retrieving agent', error);
@@ -149,46 +203,41 @@ const getAgentHandler = async (req, res) => {
  * @param {object} req.params - Request params
  * @param {string} req.params.id - Agent identifier.
  * @param {AgentUpdateParams} req.body - The Agent update parameters.
- * @returns {Agent} 200 - success response - application/json
+ * @returns {Promise<Agent>} 200 - success response - application/json
  */
 const updateAgentHandler = async (req, res) => {
   try {
     const id = req.params.id;
-    const { projectIds, removeProjectIds, ...updateData } = req.body;
-    const isAdmin = req.user.role === SystemRoles.ADMIN;
+    const validatedData = agentUpdateSchema.parse(req.body);
+    const { _id, ...updateData } = removeNullishValues(validatedData);
+
+    // Convert OCR to context in incoming updateData
+    convertOcrToContextInPlace(updateData);
+
     const existingAgent = await getAgent({ id });
-    const isAuthor = existingAgent.author.toString() === req.user.id;
 
     if (!existingAgent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    const hasEditPermission = existingAgent.isCollaborative || isAdmin || isAuthor;
 
-    if (!hasEditPermission) {
-      return res.status(403).json({
-        error: 'You do not have permission to modify this non-collaborative agent',
-      });
+    // Convert legacy OCR tool resource to context format in existing agent
+    const ocrConversion = mergeAgentOcrConversion(existingAgent, updateData);
+    if (ocrConversion.tool_resources) {
+      updateData.tool_resources = ocrConversion.tool_resources;
     }
-
-    /** @type {boolean} */
-    const isProjectUpdate = (projectIds?.length ?? 0) > 0 || (removeProjectIds?.length ?? 0) > 0;
+    if (ocrConversion.tools) {
+      updateData.tools = ocrConversion.tools;
+    }
 
     let updatedAgent =
       Object.keys(updateData).length > 0
         ? await updateAgent({ id }, updateData, {
             updatingUserId: req.user.id,
-            skipVersioning: isProjectUpdate,
           })
         : existingAgent;
 
-    if (isProjectUpdate) {
-      updatedAgent = await updateAgentProjects({
-        user: req.user,
-        agentId: id,
-        projectIds,
-        removeProjectIds,
-      });
-    }
+    // Add version count to the response
+    updatedAgent.version = updatedAgent.versions ? updatedAgent.versions.length : 0;
 
     if (updatedAgent.author) {
       updatedAgent.author = updatedAgent.author.toString();
@@ -200,6 +249,11 @@ const updateAgentHandler = async (req, res) => {
 
     return res.json(updatedAgent);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.error('[/Agents/:id] Validation error', error.errors);
+      return res.status(400).json({ error: 'Invalid request data', details: error.errors });
+    }
+
     logger.error('[/Agents/:id] Error updating Agent', error);
 
     if (error.statusCode === 409) {
@@ -219,7 +273,7 @@ const updateAgentHandler = async (req, res) => {
  * @param {object} req - Express Request
  * @param {object} req.params - Request params
  * @param {string} req.params.id - Agent identifier.
- * @returns {Agent} 201 - success response - application/json
+ * @returns {Promise<Agent>} 201 - success response - application/json
  */
 const duplicateAgentHandler = async (req, res) => {
   const { id } = req.params;
@@ -252,9 +306,19 @@ const duplicateAgentHandler = async (req, res) => {
       hour12: false,
     })})`;
 
+    if (_tool_resources?.[EToolResources.context]) {
+      cloneData.tool_resources = {
+        [EToolResources.context]: _tool_resources[EToolResources.context],
+      };
+    }
+
     if (_tool_resources?.[EToolResources.ocr]) {
       cloneData.tool_resources = {
-        [EToolResources.ocr]: _tool_resources[EToolResources.ocr],
+        /** Legacy conversion from `ocr` to `context` */
+        [EToolResources.context]: {
+          ...(_tool_resources[EToolResources.context] ?? {}),
+          ..._tool_resources[EToolResources.ocr],
+        },
       };
     }
 
@@ -309,6 +373,26 @@ const duplicateAgentHandler = async (req, res) => {
     newAgentData.actions = agentActions;
     const newAgent = await createAgent(newAgentData);
 
+    // Automatically grant owner permissions to the duplicator
+    try {
+      await grantPermission({
+        principalType: PrincipalType.USER,
+        principalId: userId,
+        resourceType: ResourceType.AGENT,
+        resourceId: newAgent._id,
+        accessRoleId: AccessRoleIds.AGENT_OWNER,
+        grantedBy: userId,
+      });
+      logger.debug(
+        `[duplicateAgent] Granted owner permissions to user ${userId} for duplicated agent ${newAgent.id}`,
+      );
+    } catch (permissionError) {
+      logger.error(
+        `[duplicateAgent] Failed to grant owner permissions for duplicated agent ${newAgent.id}:`,
+        permissionError,
+      );
+    }
+
     return res.status(201).json({
       agent: newAgent,
       actions: newActionsList,
@@ -326,7 +410,7 @@ const duplicateAgentHandler = async (req, res) => {
  * @param {object} req - Express Request
  * @param {object} req.params - Request params
  * @param {string} req.params.id - Agent identifier.
- * @returns {Agent} 200 - success response - application/json
+ * @returns {Promise<Agent>} 200 - success response - application/json
  */
 const deleteAgentHandler = async (req, res) => {
   try {
@@ -335,7 +419,7 @@ const deleteAgentHandler = async (req, res) => {
     if (!agent) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    await deleteAgent({ id, author: req.user.id });
+    await deleteAgent({ id });
     return res.json({ message: 'Agent deleted' });
   } catch (error) {
     logger.error('[/Agents/:id] Error deleting Agent', error);
@@ -344,7 +428,7 @@ const deleteAgentHandler = async (req, res) => {
 };
 
 /**
- *
+ * Lists agents using ACL-aware permissions (ownership + explicit shares).
  * @route GET /Agents
  * @param {object} req - Express Request
  * @param {object} req.query - Request query
@@ -353,9 +437,65 @@ const deleteAgentHandler = async (req, res) => {
  */
 const getListAgentsHandler = async (req, res) => {
   try {
-    const data = await getListAgents({
-      author: req.user.id,
+    const userId = req.user.id;
+    const { category, search, limit, cursor, promoted } = req.query;
+    let requiredPermission = req.query.requiredPermission;
+    if (typeof requiredPermission === 'string') {
+      requiredPermission = parseInt(requiredPermission, 10);
+      if (isNaN(requiredPermission)) {
+        requiredPermission = PermissionBits.VIEW;
+      }
+    } else if (typeof requiredPermission !== 'number') {
+      requiredPermission = PermissionBits.VIEW;
+    }
+    // Base filter
+    const filter = {};
+
+    // Handle category filter - only apply if category is defined
+    if (category !== undefined && category.trim() !== '') {
+      filter.category = category;
+    }
+
+    // Handle promoted filter - only from query param
+    if (promoted === '1') {
+      filter.is_promoted = true;
+    } else if (promoted === '0') {
+      filter.is_promoted = { $ne: true };
+    }
+
+    // Handle search filter
+    if (search && search.trim() !== '') {
+      filter.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } },
+      ];
+    }
+    // Get agent IDs the user has VIEW access to via ACL
+    const accessibleIds = await findAccessibleResources({
+      userId,
+      role: req.user.role,
+      resourceType: ResourceType.AGENT,
+      requiredPermissions: requiredPermission,
     });
+    const publiclyAccessibleIds = await findPubliclyAccessibleResources({
+      resourceType: ResourceType.AGENT,
+      requiredPermissions: PermissionBits.VIEW,
+    });
+    // Use the new ACL-aware function
+    const data = await getListAgentsByAccess({
+      accessibleIds,
+      otherParams: filter,
+      limit,
+      after: cursor,
+    });
+    if (data?.data?.length) {
+      data.data = data.data.map((agent) => {
+        if (publiclyAccessibleIds.some((id) => id.equals(agent._id))) {
+          agent.isPublic = true;
+        }
+        return agent;
+      });
+    }
     return res.json(data);
   } catch (error) {
     logger.error('[/Agents] Error listing Agents', error);
@@ -372,20 +512,35 @@ const getListAgentsHandler = async (req, res) => {
  * @param {Express.Multer.File} req.file - The avatar image file.
  * @param {object} req.body - Request body
  * @param {string} [req.body.avatar] - Optional avatar for the agent's avatar.
- * @returns {Object} 200 - success response - application/json
+ * @returns {Promise<void>} 200 - success response - application/json
  */
 const uploadAgentAvatarHandler = async (req, res) => {
   try {
+    const appConfig = req.config;
     filterFile({ req, file: req.file, image: true, isAvatar: true });
     const { agent_id } = req.params;
     if (!agent_id) {
       return res.status(400).json({ message: 'Agent ID is required' });
     }
 
+    const isAdmin = req.user.role === SystemRoles.ADMIN;
+    const existingAgent = await getAgent({ id: agent_id });
+
+    if (!existingAgent) {
+      return res.status(404).json({ error: 'Agent not found' });
+    }
+
+    const isAuthor = existingAgent.author.toString() === req.user.id.toString();
+    const hasEditPermission = existingAgent.isCollaborative || isAdmin || isAuthor;
+
+    if (!hasEditPermission) {
+      return res.status(403).json({
+        error: 'You do not have permission to modify this non-collaborative agent',
+      });
+    }
+
     const buffer = await fs.readFile(req.file.path);
-
-    const fileStrategy = req.app.locals.fileStrategy;
-
+    const fileStrategy = getFileStrategy(appConfig, { isAvatar: true });
     const resizedBuffer = await resizeAvatar({
       userId: req.user.id,
       input: buffer,
@@ -404,14 +559,7 @@ const uploadAgentAvatarHandler = async (req, res) => {
       source: fileStrategy,
     };
 
-    let _avatar;
-    try {
-      const agent = await getAgent({ id: agent_id });
-      _avatar = agent.avatar;
-    } catch (error) {
-      logger.error('[/:agent_id/avatar] Error fetching agent', error);
-      _avatar = {};
-    }
+    let _avatar = existingAgent.avatar;
 
     if (_avatar && _avatar.source) {
       const { deleteFile } = getStrategyFunctions(_avatar.source);
@@ -433,7 +581,7 @@ const uploadAgentAvatarHandler = async (req, res) => {
     };
 
     promises.push(
-      await updateAgent({ id: agent_id, author: req.user.id }, data, {
+      await updateAgent({ id: agent_id }, data, {
         updatingUserId: req.user.id,
       }),
     );
@@ -488,7 +636,7 @@ const revertAgentVersionHandler = async (req, res) => {
       return res.status(404).json({ error: 'Agent not found' });
     }
 
-    const isAuthor = existingAgent.author.toString() === req.user.id;
+    const isAuthor = existingAgent.author.toString() === req.user.id.toString();
     const hasEditPermission = existingAgent.isCollaborative || isAdmin || isAuthor;
 
     if (!hasEditPermission) {
@@ -513,7 +661,48 @@ const revertAgentVersionHandler = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+/**
+ * Get all agent categories with counts
+ *
+ * @param {Object} _req - Express request object (unused)
+ * @param {Object} res - Express response object
+ */
+const getAgentCategories = async (_req, res) => {
+  try {
+    const categories = await getCategoriesWithCounts();
+    const promotedCount = await countPromotedAgents();
+    const formattedCategories = categories.map((category) => ({
+      value: category.value,
+      label: category.label,
+      count: category.agentCount,
+      description: category.description,
+    }));
 
+    if (promotedCount > 0) {
+      formattedCategories.unshift({
+        value: 'promoted',
+        label: 'Promoted',
+        count: promotedCount,
+        description: 'Our recommended agents',
+      });
+    }
+
+    formattedCategories.push({
+      value: 'all',
+      label: 'All',
+      description: 'All available agents',
+    });
+
+    res.status(200).json(formattedCategories);
+  } catch (error) {
+    logger.error('[/Agents/Marketplace] Error fetching agent categories:', error);
+    res.status(500).json({
+      error: 'Failed to fetch agent categories',
+      userMessage: 'Unable to load categories. Please refresh the page.',
+      suggestion: 'Try refreshing the page or check your network connection',
+    });
+  }
+};
 module.exports = {
   createAgent: createAgentHandler,
   getAgent: getAgentHandler,
@@ -523,4 +712,5 @@ module.exports = {
   getListAgents: getListAgentsHandler,
   uploadAgentAvatar: uploadAgentAvatarHandler,
   revertAgentVersion: revertAgentVersionHandler,
+  getAgentCategories,
 };

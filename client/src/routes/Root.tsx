@@ -4,21 +4,21 @@ import throttle from 'lodash/throttle';
 import type { ContextType } from '~/common';
 import type { ImperativePanelHandle } from 'react-resizable-panels';
 import {
-  useAuthContext,
+  useSearchEnabled,
   useAssistantsMap,
+  useAuthContext,
   useAgentsMap,
   useFileMap,
-  useSearchEnabled,
-  useMediaQuery,
 } from '~/hooks';
 import {
-  AgentsMapContext,
+  PromptGroupsProvider,
   AssistantsMapContext,
-  FileMapContext,
+  AgentsMapContext,
   SetConvoProvider,
+  FileMapContext,
 } from '~/Providers';
-import TermsAndConditionsModal from '~/components/ui/TermsAndConditionsModal';
 import { useUserTermsQuery, useGetStartupConfig } from '~/data-provider';
+import { TermsAndConditionsModal } from '~/components/ui/TermsAndConditionsModal';
 import { Nav, MobileNav } from '~/components/Nav';
 import { useHealthCheck } from '~/data-provider';
 import { Banner } from '~/components/Banners';
@@ -80,13 +80,13 @@ export default function Root() {
       throttle((sizes: number[]) => {
         const normalizedSizes = normalizeLayout(sizes);
         const newNavWidth = normalizedSizes[0];
-        
+
         // Auto-collapse if width gets too small - trigger the same effect as clicking toggle
         if (newNavWidth < autoCollapseThreshold && navVisible) {
           handleNavToggle();
           return;
         }
-        
+
         localStorage.setItem('nav-layout', JSON.stringify(normalizedSizes));
         setNavWidth(newNavWidth);
       }, 350),
@@ -143,66 +143,18 @@ export default function Root() {
       <FileMapContext.Provider value={fileMap}>
         <AssistantsMapContext.Provider value={assistantsMap}>
           <AgentsMapContext.Provider value={agentsMap}>
-            <Banner onHeightChange={setBannerHeight} />
-            <div className="flex" style={{ height: `calc(100dvh - ${bannerHeight}px)` }}>
-              <div className="relative z-0 flex h-full w-full overflow-hidden">
-                {isSmallScreen ? (
-                  // Mobile layout - use original Nav behavior
-                  <>
-                    <Nav navVisible={navVisible} setNavVisible={handleNavToggle} />
-                    <div className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden">
-                      <MobileNav setNavVisible={handleNavToggle} />
-                      <Outlet
-                        context={
-                          { navVisible, setNavVisible: handleNavToggle } satisfies ContextType
-                        }
-                      />
-                    </div>
-                  </>
-                ) : (
-                  // Desktop layout - use resizable panels
-                  <ResizablePanelGroup
-                    direction="horizontal"
-                    onLayout={(sizes) => throttledSaveLayout(sizes)}
-                    className="h-full w-full"
-                  >
-                    <ResizablePanel
-                      ref={navPanelRef}
-                      defaultSize={navVisible ? defaultLayout[0] : collapsedNavSize}
-                      minSize={autoCollapseThreshold}
-                      maxSize={maxNavSize}
-                      collapsedSize={collapsedNavSize}
-                      collapsible={true}
-                      order={1}
-                      id="nav-panel"
-                      className="transition-all duration-200 ease-in-out"
-                    >
-                      <Nav navVisible={navVisible} setNavVisible={handleNavToggle} />
-                    </ResizablePanel>
-                    <ResizableHandleAlt
-                      withHandle
-                      className="bg-border-medium text-text-primary transition-colors duration-200 hover:bg-border-heavy"
-                    />
-                    <ResizablePanel
-                      defaultSize={defaultLayout[1]}
-                      minSize={55}
-                      order={2}
-                      id="main-content-panel"
-                      className="relative"
-                    >
-                      <div className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden">
-                        <MobileNav setNavVisible={handleNavToggle} />
-                        <Outlet
-                          context={
-                            { navVisible, setNavVisible: handleNavToggle } satisfies ContextType
-                          }
-                        />
-                      </div>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                )}
+            <PromptGroupsProvider>
+              <Banner onHeightChange={setBannerHeight} />
+              <div className="flex" style={{ height: `calc(100dvh - ${bannerHeight}px)` }}>
+                <div className="relative z-0 flex h-full w-full overflow-hidden">
+                  <Nav navVisible={navVisible} setNavVisible={setNavVisible} />
+                  <div className="relative flex h-full max-w-full flex-1 flex-col overflow-hidden">
+                    <MobileNav setNavVisible={setNavVisible} />
+                    <Outlet context={{ navVisible, setNavVisible } satisfies ContextType} />
+                  </div>
+                </div>
               </div>
-            </div>
+            </PromptGroupsProvider>
           </AgentsMapContext.Provider>
           {config?.interface?.termsOfService?.modalAcceptance === true && (
             <TermsAndConditionsModal

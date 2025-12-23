@@ -1,16 +1,23 @@
 const multer = require('multer');
 const express = require('express');
+const { sleep } = require('@librechat/agents');
+const { isEnabled } = require('@librechat/api');
+const { logger } = require('@librechat/data-schemas');
 const { CacheKeys, EModelEndpoint } = require('librechat-data-provider');
+const {
+  createImportLimiters,
+  createForkLimiters,
+  configMiddleware,
+} = require('~/server/middleware');
 const { getConvosByCursor, deleteConvos, getConvo, saveConvo } = require('~/models/Conversation');
+const { Conversation } = require('~/db/models');
 const { forkConversation, duplicateConversation } = require('~/server/utils/import/fork');
 const { storage, importFileFilter } = require('~/server/routes/files/multer');
+const { deleteAllSharedLinks, deleteConvoSharedLink } = require('~/models');
 const requireJwtAuth = require('~/server/middleware/requireJwtAuth');
 const { importConversations } = require('~/server/utils/import');
-const { createImportLimiters } = require('~/server/middleware');
 const { deleteToolCalls } = require('~/models/ToolCall');
-const { isEnabled, sleep } = require('~/server/utils');
 const getLogStores = require('~/cache/getLogStores');
-const { logger } = require('~/config');
 
 const assistantClients = {
   [EModelEndpoint.azureAssistants]: require('~/server/services/Endpoints/azureAssistants'),
@@ -45,6 +52,7 @@ router.get('/', async (req, res) => {
     });
     res.status(200).json(result);
   } catch (error) {
+    logger.error('Error fetching conversations', error);
     res.status(500).json({ error: 'Error fetching conversations' });
   }
 });
@@ -111,7 +119,7 @@ router.delete('/', async (req, res) => {
     /** @type {{ openai: OpenAI }} */
     const { openai } = await assistantClients[endpoint].initializeClient({ req, res });
     try {
-      const response = await openai.beta.threads.del(thread_id);
+      const response = await openai.beta.threads.delete(thread_id);
       logger.debug('Deleted OpenAI thread:', response);
     } catch (error) {
       logger.error('Error deleting OpenAI thread:', error);
@@ -120,7 +128,10 @@ router.delete('/', async (req, res) => {
 
   try {
     const dbResponse = await deleteConvos(req.user.id, filter);
-    await deleteToolCalls(req.user.id, filter.conversationId);
+    if (filter.conversationId) {
+      await deleteToolCalls(req.user.id, filter.conversationId);
+      await deleteConvoSharedLink(req.user.id, filter.conversationId);
+    }
     res.status(201).json(dbResponse);
   } catch (error) {
     logger.error('Error clearing conversations', error);
@@ -132,6 +143,7 @@ router.delete('/all', async (req, res) => {
   try {
     const dbResponse = await deleteConvos(req.user.id, {});
     await deleteToolCalls(req.user.id);
+    await deleteAllSharedLinks(req.user.id);
     res.status(201).json(dbResponse);
   } catch (error) {
     logger.error('Error clearing conversations', error);
@@ -181,6 +193,7 @@ router.post('/pin', async (req, res) => {
 });
 
 const { importIpLimiter, importUserLimiter } = createImportLimiters();
+const { forkIpLimiter, forkUserLimiter } = createForkLimiters();
 const upload = multer({ storage: storage, fileFilter: importFileFilter });
 
 /**
@@ -193,6 +206,7 @@ router.post(
   '/import',
   importIpLimiter,
   importUserLimiter,
+  configMiddleware,
   upload.single('file'),
   async (req, res) => {
     try {
@@ -214,7 +228,7 @@ router.post(
  * @param {express.Response<TForkConvoResponse>} res - Express response object.
  * @returns {Promise<void>} - The response after forking the conversation.
  */
-router.post('/fork', async (req, res) => {
+router.post('/fork', forkIpLimiter, forkUserLimiter, async (req, res) => {
   try {
     /** @type {TForkConvoRequest} */
     const { conversationId, messageId, option, splitAtTarget, latestMessageId } = req.body;
@@ -248,6 +262,44 @@ router.post('/duplicate', async (req, res) => {
   } catch (error) {
     logger.error('Error duplicating conversation:', error);
     res.status(500).send('Error duplicating conversation');
+  }
+});
+
+/**
+ * PUT /reorder-pinned
+ * Reorders pinned conversations by updating their pinnedOrder values
+ * @route PUT /reorder-pinned
+ * @param {string[]} req.body.conversationIds - Array of conversation IDs in the new order
+ * @returns {object} 200 - success response - application/json
+ */
+router.put('/reorder-pinned', async (req, res) => {
+  const { conversationIds } = req.body;
+
+  if (!Array.isArray(conversationIds)) {
+    return res.status(400).json({ error: 'conversationIds must be an array' });
+  }
+
+  try {
+    const bulkOps = conversationIds.map((conversationId, index) => ({
+      updateOne: {
+        filter: { conversationId, user: req.user.id, isPinned: true },
+        update: { pinnedOrder: index },
+      },
+    }));
+
+    const result = await Conversation.bulkWrite(bulkOps);
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ error: 'No pinned conversations found to reorder' });
+    }
+
+    res.status(200).json({
+      message: 'Pinned conversations reordered successfully',
+      modifiedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    logger.error('Error reordering pinned conversations', error);
+    res.status(500).send('Error reordering pinned conversations');
   }
 });
 

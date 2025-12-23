@@ -113,6 +113,22 @@ module.exports = {
         update.expiredAt = null;
       }
 
+      // Auto-assign pinnedOrder when pinning a conversation
+      if (update.isPinned === true && update.pinnedOrder === undefined) {
+        const maxOrder = await Conversation.findOne(
+          { user: req.user.id, isPinned: true },
+          'pinnedOrder',
+        )
+          .sort({ pinnedOrder: -1 })
+          .lean();
+        update.pinnedOrder = (maxOrder?.pinnedOrder ?? -1) + 1;
+      }
+
+      // Clear pinnedOrder when unpinning
+      if (update.isPinned === false) {
+        update.pinnedOrder = undefined;
+      }
+
       /** @type {{ $set: Partial<TConversation>; $unset?: Record<keyof TConversation, number> }} */
       const updateOperation = { $set: update };
       if (metadata && metadata.unsetFields && Object.keys(metadata.unsetFields).length > 0) {
@@ -158,21 +174,13 @@ module.exports = {
   },
   getConvosByCursor: async (
     user,
-    { cursor, limit = 25, isArchived = false, isPinned, tags, search, order = 'desc' } = {},
+    { cursor, limit = 25, isArchived = false, tags, search, order = 'desc' } = {},
   ) => {
     const filters = [{ user }];
     if (isArchived) {
       filters.push({ isArchived: true });
     } else {
       filters.push({ $or: [{ isArchived: false }, { isArchived: { $exists: false } }] });
-    }
-
-    if (isPinned !== undefined) {
-      if (isPinned) {
-        filters.push({ isPinned: true });
-      } else {
-        filters.push({ $or: [{ isPinned: false }, { isPinned: { $exists: false } }] });
-      }
     }
 
     if (Array.isArray(tags) && tags.length > 0) {
@@ -183,7 +191,7 @@ module.exports = {
 
     if (search) {
       try {
-        const meiliResults = await Conversation.meiliSearch(search);
+        const meiliResults = await Conversation.meiliSearch(search, { filter: `user = "${user}"` });
         const matchingIds = Array.isArray(meiliResults.hits)
           ? meiliResults.hits.map((result) => result.conversationId)
           : [];
@@ -206,7 +214,7 @@ module.exports = {
     try {
       const convos = await Conversation.find(query)
         .select(
-          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL isPinned',
+          'conversationId endpoint title createdAt updatedAt user model agent_id assistant_id spec iconURL tags isPinned pinnedOrder',
         )
         .sort({ updatedAt: order === 'asc' ? 1 : -1 })
         .limit(limit + 1)

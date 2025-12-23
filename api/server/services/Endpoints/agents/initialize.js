@@ -1,6 +1,11 @@
 const { logger } = require('@librechat/data-schemas');
 const { createContentAggregator } = require('@librechat/agents');
 const {
+  validateAgentModel,
+  getCustomEndpointConfig,
+  createSequentialChainEdges,
+} = require('@librechat/api');
+const {
   Constants,
   EModelEndpoint,
   isAgentsEndpoint,
@@ -11,12 +16,16 @@ const {
   getDefaultHandlers,
 } = require('~/server/controllers/agents/callbacks');
 const { initializeAgent } = require('~/server/services/Endpoints/agents/agent');
-const { getCustomEndpointConfig } = require('~/server/services/Config');
+const { getModelsConfig } = require('~/server/controllers/ModelController');
 const { loadAgentTools } = require('~/server/services/ToolService');
 const AgentClient = require('~/server/controllers/agents/client');
 const { getAgent } = require('~/models/Agent');
+const { logViolation } = require('~/cache');
 
-function createToolLoader() {
+/**
+ * @param {AbortSignal} signal
+ */
+function createToolLoader(signal) {
   /**
    * @param {object} params
    * @param {ServerRequest} params.req
@@ -26,7 +35,11 @@ function createToolLoader() {
    * @param {string} params.provider
    * @param {string} params.model
    * @param {AgentToolResources} params.tool_resources
-   * @returns {Promise<{ tools: StructuredTool[], toolContextMap: Record<string, unknown> } | undefined>}
+   * @returns {Promise<{
+   * tools: StructuredTool[],
+   * toolContextMap: Record<string, unknown>,
+   * userMCPAuthMap?: Record<string, Record<string, string>>
+   * } | undefined>}
    */
   return async function loadTools({ req, res, agentId, tools, provider, model, tool_resources }) {
     const agent = { id: agentId, tools, provider, model };
@@ -35,6 +48,7 @@ function createToolLoader() {
         req,
         res,
         agent,
+        signal,
         tool_resources,
       });
     } catch (error) {
@@ -43,10 +57,11 @@ function createToolLoader() {
   };
 }
 
-const initializeClient = async ({ req, res, endpointOption }) => {
+const initializeClient = async ({ req, res, signal, endpointOption }) => {
   if (!endpointOption) {
     throw new Error('Endpoint option not provided');
   }
+  const appConfig = req.config;
 
   // TODO: use endpointOption to determine options/modelOptions
   /** @type {Array<UsageMetadata>} */
@@ -72,11 +87,23 @@ const initializeClient = async ({ req, res, endpointOption }) => {
     throw new Error('Agent not found');
   }
 
-  const agentConfigs = new Map();
-  /** @type {Set<string>} */
-  const allowedProviders = new Set(req?.app?.locals?.[EModelEndpoint.agents]?.allowedProviders);
+  const modelsConfig = await getModelsConfig(req);
+  const validationResult = await validateAgentModel({
+    req,
+    res,
+    modelsConfig,
+    logViolation,
+    agent: primaryAgent,
+  });
 
-  const loadTools = createToolLoader();
+  if (!validationResult.isValid) {
+    throw new Error(validationResult.error?.message);
+  }
+
+  const agentConfigs = new Map();
+  const allowedProviders = new Set(appConfig?.endpoints?.[EModelEndpoint.agents]?.allowedProviders);
+
+  const loadTools = createToolLoader(signal);
   /** @type {Array<MongoFile>} */
   const requestFiles = req.body.files ?? [];
   /** @type {string} */
@@ -95,30 +122,98 @@ const initializeClient = async ({ req, res, endpointOption }) => {
   });
 
   const agent_ids = primaryConfig.agent_ids;
-  if (agent_ids?.length) {
-    for (const agentId of agent_ids) {
-      const agent = await getAgent({ id: agentId });
-      if (!agent) {
-        throw new Error(`Agent ${agentId} not found`);
+  let userMCPAuthMap = primaryConfig.userMCPAuthMap;
+
+  async function processAgent(agentId) {
+    const agent = await getAgent({ id: agentId });
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not found`);
+    }
+
+    const validationResult = await validateAgentModel({
+      req,
+      res,
+      agent,
+      modelsConfig,
+      logViolation,
+    });
+
+    if (!validationResult.isValid) {
+      throw new Error(validationResult.error?.message);
+    }
+
+    const config = await initializeAgent({
+      req,
+      res,
+      agent,
+      loadTools,
+      requestFiles,
+      conversationId,
+      endpointOption,
+      allowedProviders,
+    });
+    if (userMCPAuthMap != null) {
+      Object.assign(userMCPAuthMap, config.userMCPAuthMap ?? {});
+    } else {
+      userMCPAuthMap = config.userMCPAuthMap;
+    }
+    agentConfigs.set(agentId, config);
+  }
+
+  let edges = primaryConfig.edges;
+  const checkAgentInit = (agentId) => agentId === primaryConfig.id || agentConfigs.has(agentId);
+  if ((edges?.length ?? 0) > 0) {
+    for (const edge of edges) {
+      if (Array.isArray(edge.to)) {
+        for (const to of edge.to) {
+          if (checkAgentInit(to)) {
+            continue;
+          }
+          await processAgent(to);
+        }
+      } else if (typeof edge.to === 'string' && checkAgentInit(edge.to)) {
+        continue;
+      } else if (typeof edge.to === 'string') {
+        await processAgent(edge.to);
       }
-      const config = await initializeAgent({
-        req,
-        res,
-        agent,
-        loadTools,
-        requestFiles,
-        conversationId,
-        endpointOption,
-        allowedProviders,
-      });
-      agentConfigs.set(agentId, config);
+
+      if (Array.isArray(edge.from)) {
+        for (const from of edge.from) {
+          if (checkAgentInit(from)) {
+            continue;
+          }
+          await processAgent(from);
+        }
+      } else if (typeof edge.from === 'string' && checkAgentInit(edge.from)) {
+        continue;
+      } else if (typeof edge.from === 'string') {
+        await processAgent(edge.from);
+      }
     }
   }
 
-  let endpointConfig = req.app.locals[primaryConfig.endpoint];
+  /** @deprecated Agent Chain */
+  if (agent_ids?.length) {
+    for (const agentId of agent_ids) {
+      if (checkAgentInit(agentId)) {
+        continue;
+      }
+      await processAgent(agentId);
+    }
+
+    const chain = await createSequentialChainEdges([primaryConfig.id].concat(agent_ids), '{convo}');
+    edges = edges ? edges.concat(chain) : chain;
+  }
+
+  primaryConfig.edges = edges;
+
+  let endpointConfig = appConfig.endpoints?.[primaryConfig.endpoint];
   if (!isAgentsEndpoint(primaryConfig.endpoint) && !endpointConfig) {
     try {
-      endpointConfig = await getCustomEndpointConfig(primaryConfig.endpoint);
+      endpointConfig = getCustomEndpointConfig({
+        endpoint: primaryConfig.endpoint,
+        appConfig,
+      });
     } catch (err) {
       logger.error(
         '[api/server/controllers/agents/client.js #titleConvo] Error getting custom endpoint config',
@@ -159,7 +254,7 @@ const initializeClient = async ({ req, res, endpointOption }) => {
         : EModelEndpoint.agents,
   });
 
-  return { client };
+  return { client, userMCPAuthMap };
 };
 
 module.exports = { initializeClient };

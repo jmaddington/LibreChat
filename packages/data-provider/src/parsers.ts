@@ -18,7 +18,6 @@ import {
   compactAssistantSchema,
 } from './schemas';
 import { bedrockInputSchema } from './bedrock';
-import { extractEnvVariable } from './utils';
 import { alternateName } from './config';
 
 type EndpointSchema =
@@ -370,7 +369,7 @@ export function parseTextParts(
       continue;
     }
     if (part.type === ContentTypes.TEXT) {
-      const textValue = typeof part.text === 'string' ? part.text : part.text.value;
+      const textValue = (typeof part.text === 'string' ? part.text : part.text?.value) || '';
 
       if (
         result.length > 0 &&

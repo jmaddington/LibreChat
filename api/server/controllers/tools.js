@@ -1,14 +1,13 @@
 const { nanoid } = require('nanoid');
 const { EnvVar } = require('@librechat/agents');
-const { checkAccess } = require('@librechat/api');
 const { logger } = require('@librechat/data-schemas');
+const { checkAccess, loadWebSearchAuth } = require('@librechat/api');
 const {
   Tools,
   AuthType,
   Permissions,
   ToolCallTypes,
   PermissionTypes,
-  loadWebSearchAuth,
 } = require('librechat-data-provider');
 const { processFileURL, uploadImageBuffer } = require('~/server/services/Files/process');
 const { processCodeOutput } = require('~/server/services/Files/Code/process');
@@ -36,9 +35,10 @@ const toolAccessPermType = {
  */
 const verifyWebSearchAuth = async (req, res) => {
   try {
+    const appConfig = req.config;
     const userId = req.user.id;
     /** @type {TCustomConfig['webSearch']} */
-    const webSearchConfig = req.app.locals?.webSearch || {};
+    const webSearchConfig = appConfig?.webSearch || {};
     const result = await loadWebSearchAuth({
       userId,
       loadAuthValues,
@@ -111,6 +111,7 @@ const verifyToolAuth = async (req, res) => {
  */
 const callTool = async (req, res) => {
   try {
+    const appConfig = req.config;
     const { toolId = '' } = req.params;
     if (!fieldsMap[toolId]) {
       logger.warn(`[${toolId}/call] User ${req.user.id} attempted call to invalid tool`);
@@ -156,8 +157,10 @@ const callTool = async (req, res) => {
         returnMetadata: true,
         processFileURL,
         uploadImageBuffer,
-        fileStrategy: req.app.locals.fileStrategy,
       },
+      webSearch: appConfig.webSearch,
+      fileStrategy: appConfig.fileStrategy,
+      imageOutputType: appConfig.imageOutputType,
     });
 
     const tool = loadedTools[0];
