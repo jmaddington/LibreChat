@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { Spinner } from '@librechat/client';
 import { MenuItem } from '@headlessui/react';
 import { BookmarkFilledIcon, BookmarkIcon } from '@radix-ui/react-icons';
 import type { FC } from 'react';
-import { Spinner } from '~/components/svg';
 
 type MenuItemProps = {
   tag: string | React.ReactNode;
@@ -40,10 +40,10 @@ const BookmarkItem: FC<MenuItemProps> = ({ tag, selected, handleSubmit, icon, ..
     }
 
     if (selected) {
-      return <BookmarkFilledIcon className="size-4" />;
+      return <BookmarkFilledIcon aria-hidden="true" className="size-4" />;
     }
 
-    return <BookmarkIcon className="size-4" />;
+    return <BookmarkIcon aria-hidden="true" className="size-4" />;
   };
 
   return (

@@ -1,15 +1,10 @@
 const OpenAI = require('openai');
-const { HttpsProxyAgent } = require('https-proxy-agent');
+const { ProxyAgent } = require('undici');
+const { isUserProvided, checkUserKeyExpiry } = require('@librechat/api');
 const { ErrorTypes, EModelEndpoint } = require('librechat-data-provider');
-const {
-  getUserKeyValues,
-  getUserKeyExpiry,
-  checkUserKeyExpiry,
-} = require('~/server/services/UserService');
-const OpenAIClient = require('~/app/clients/OpenAIClient');
-const { isUserProvided } = require('~/server/utils');
+const { getUserKeyValues, getUserKeyExpiry } = require('~/models');
 
-const initializeClient = async ({ req, res, endpointOption, version, initAppClient = false }) => {
+const initializeClient = async ({ req, res, version }) => {
   const { PROXY, OPENAI_ORGANIZATION, ASSISTANTS_API_KEY, ASSISTANTS_BASE_URL } = process.env;
 
   const userProvidesKey = isUserProvided(ASSISTANTS_API_KEY);
@@ -34,14 +29,6 @@ const initializeClient = async ({ req, res, endpointOption, version, initAppClie
     },
   };
 
-  const clientOptions = {
-    reverseProxyUrl: baseURL ?? null,
-    proxy: PROXY ?? null,
-    req,
-    res,
-    ...endpointOption,
-  };
-
   if (userProvidesKey & !apiKey) {
     throw new Error(
       JSON.stringify({
@@ -59,7 +46,10 @@ const initializeClient = async ({ req, res, endpointOption, version, initAppClie
   }
 
   if (PROXY) {
-    opts.httpAgent = new HttpsProxyAgent(PROXY);
+    const proxyAgent = new ProxyAgent(PROXY);
+    opts.fetchOptions = {
+      dispatcher: proxyAgent,
+    };
   }
 
   if (OPENAI_ORGANIZATION) {
@@ -74,15 +64,6 @@ const initializeClient = async ({ req, res, endpointOption, version, initAppClie
 
   openai.req = req;
   openai.res = res;
-
-  if (endpointOption && initAppClient) {
-    const client = new OpenAIClient(apiKey, clientOptions);
-    return {
-      client,
-      openai,
-      openAIApiKey: apiKey,
-    };
-  }
 
   return {
     openai,

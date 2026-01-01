@@ -1,7 +1,7 @@
 import React from 'react';
-import { HoverCardPortal, HoverCardContent } from '~/components/ui';
-import { ESide } from '~/common';
+import { HoverCardPortal, HoverCardContent } from '@librechat/client';
 import { useLocalize } from '~/hooks';
+import { ESide } from '~/common';
 
 type TOptionHoverProps = {
   endpoint: string;
@@ -36,11 +36,6 @@ const types = {
   },
   openAI,
   azureOpenAI: openAI,
-  gptPlugins: {
-    func: 'com_endpoint_func_hover',
-    skip: 'com_endpoint_skip_hover',
-    ...openAI,
-  },
 };
 
 function OptionHover({ endpoint, type, side }: TOptionHoverProps) {

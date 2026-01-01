@@ -268,7 +268,7 @@ class CollectionExport extends Tool {
         doc.fillColor('#34495e').fontSize(18).text('MAIN COLLECTION', { underline: true });
         doc.fillColor('#2c3e50').rect(50, doc.y + 2, doc.page.width - 100, 2).fill();
         doc.moveDown(0.8);
-        
+
         doc.fillColor('#2c3e50').fontSize(14).font('Helvetica-Bold')
           .text(data.collection.name, { continued: false });
         doc.fillColor('#34495e').fontSize(11).font('Helvetica')
@@ -289,20 +289,20 @@ class CollectionExport extends Tool {
           doc.fillColor('#16a085').fontSize(16).text('SUB-COLLECTIONS', { underline: true });
           doc.fillColor('#16a085').rect(50, doc.y + 2, doc.page.width - 100, 1).fill();
           doc.moveDown(0.8);
-          
+
           data.collections.forEach((collection) => {
             if (collection.id !== data.collection.id) {
               // Sub-collection box background
               const boxY = doc.y;
               doc.fillColor('#ecf0f1').rect(60, boxY - 5, doc.page.width - 120, 60).fill();
-              
+
               doc.fillColor('#2c3e50').fontSize(12).font('Helvetica-Bold')
                 .text(`> ${collection.name}`, 70, boxY, { continued: false });
               doc.fillColor('#34495e').fontSize(10).font('Helvetica')
                 .text(`${collection.description || 'No description'}`, 70)
                 .fillColor('#7f8c8d').fontSize(9)
                 .text(`Created: ${formatDate(collection.created_at)}`, 70);
-              
+
               if (collection.tags && collection.tags.length > 0) {
                 doc.fillColor('#8e44ad').fontSize(9)
                   .text(`Tags: ${collection.tags.join(', ')}`, 70);
@@ -330,7 +330,7 @@ class CollectionExport extends Tool {
             doc.fillColor('#f8f9fa').rect(50, noteHeaderY - 5, doc.page.width - 100, 35).fill();
             doc.fillColor('#2c3e50').fontSize(13).font('Helvetica-Bold')
               .text(`${index + 1}. ${note.title}`, 60, noteHeaderY);
-            
+
             doc.fillColor('#6c757d').fontSize(9).font('Helvetica')
               .text(`Collection: ${data.collections.find((c) => c.id === note.collection_id)?.name || 'Unknown'}`, 60)
               .text(`Created: ${formatDate(note.created_at)}`, 60);
@@ -346,18 +346,18 @@ class CollectionExport extends Tool {
             }
 
             doc.moveDown(0.5);
-            
+
             // Content section
             doc.fillColor('#495057').fontSize(10).font('Helvetica-Bold')
               .text('Content:', 60);
             doc.fillColor('#212529').fontSize(11).font('Helvetica')
-              .text(note.content, 60, doc.y + 5, { 
+              .text(note.content, 60, doc.y + 5, {
                 width: doc.page.width - 120,
                 align: 'left'
               });
-            
+
             doc.moveDown(0.8);
-            
+
             // Decorative separator
             doc.fillColor('#dee2e6').rect(50, doc.y, doc.page.width - 100, 3).fill();
             doc.moveDown(1);
@@ -376,20 +376,20 @@ class CollectionExport extends Tool {
    */
   sanitizeFilename(name, maxLength = 50) {
     if (!name) return 'untitled';
-    
+
     // Replace problematic characters but preserve Unicode letters/numbers
     let sanitized = name
       .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')  // Replace filesystem-unsafe chars
       .replace(/\s+/g, '_')                      // Replace whitespace with underscores
       .replace(/_{2,}/g, '_')                    // Collapse multiple underscores
       .replace(/^_+|_+$/g, '');                  // Remove leading/trailing underscores
-    
+
     // Truncate if too long, but try to preserve word boundaries
     if (sanitized.length > maxLength) {
       sanitized = sanitized.substring(0, maxLength).replace(/_[^_]*$/, '');
       if (sanitized.length === 0) sanitized = name.substring(0, maxLength);
     }
-    
+
     return sanitized || 'untitled';
   }
 
@@ -411,7 +411,7 @@ class CollectionExport extends Tool {
       let content;
       let filename;
       let mimeType;
-      
+
       const sanitizedName = this.sanitizeFilename(data.collection.name);
       const timestamp = Date.now();
 

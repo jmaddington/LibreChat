@@ -1,6 +1,12 @@
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
+import {
+  AccordionContent,
+  AccordionItem,
+  TooltipAnchor,
+  Accordion,
+  Button,
+} from '@librechat/client';
 import type { NavLink, NavProps } from '~/common';
-import { AccordionContent, AccordionItem, TooltipAnchor, Accordion, Button } from '~/components/ui';
 import { ActivePanelProvider, useActivePanel } from '~/Providers';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
@@ -68,7 +74,7 @@ function NavContent({ links, isCollapsed, resize }: Omit<NavProps, 'defaultActiv
                                 }
                               }}
                             >
-                              <link.icon className="mr-2 h-4 w-4" />
+                              <link.icon className="mr-2 h-4 w-4" aria-hidden="true" />
                               {localize(link.title)}
                               {link.label != null && link.label && (
                                 <span

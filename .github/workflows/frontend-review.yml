@@ -5,10 +5,11 @@ on:
     branches: 
       - main
       - dev
+      - dev-staging
       - release/*
     paths:
       - 'client/**'
-      - 'packages/**'
+      - 'packages/data-provider/**'
 
 jobs:
   tests_frontend_ubuntu:

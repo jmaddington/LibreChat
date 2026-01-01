@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { OptionTypes } from 'librechat-data-provider';
 import type { DynamicSettingProps } from 'librechat-data-provider';
-import { Label, Slider, HoverCard, Input, InputNumber, HoverCardTrigger } from '~/components/ui';
+import { Label, Slider, HoverCard, Input, InputNumber, HoverCardTrigger } from '@librechat/client';
 import { useLocalize, useDebouncedInput, useParameterEffects, TranslationKeys } from '~/hooks';
 import { cn, defaultTextProps, optionText } from '~/utils';
 import { ESide, defaultDebouncedDelay } from '~/common';
@@ -179,6 +179,7 @@ function DynamicSlider({
                 min={range ? range.min : 0}
                 step={range ? (range.step ?? 1) : 1}
                 controls={false}
+                aria-label={localize(label as TranslationKeys)}
                 className={cn(
                   defaultTextProps,
                   cn(
@@ -192,12 +193,13 @@ function DynamicSlider({
                 id={`${settingKey}-dynamic-setting-input`}
                 disabled={readonly}
                 value={getDisplayValue(selectedValue)}
+                aria-label={localize(label as TranslationKeys)}
                 onChange={() => ({})}
                 className={cn(
                   defaultTextProps,
                   cn(
                     optionText,
-                    'reset-rc-number-input reset-rc-number-input-text-right h-auto w-12 border-0 py-1 text-xs group-hover/temp:border-gray-200',
+                    'reset-rc-number-input h-auto w-14 border-0 py-1 pl-1 text-center text-xs group-hover/temp:border-gray-200',
                   ),
                 )}
               />
@@ -214,6 +216,7 @@ function DynamicSlider({
             onValueChange={(value) => handleValueChange(value[0])}
             onDoubleClick={() => setInputValue(defaultValue as string | number)}
             max={max}
+            aria-label={localize(label as TranslationKeys)}
             min={range ? range.min : 0}
             step={range ? (range.step ?? 1) : 1}
             className="flex h-4 w-full"

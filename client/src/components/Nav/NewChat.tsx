@@ -1,13 +1,11 @@
 import React, { useCallback } from 'react';
-import { useRecoilValue } from 'recoil';
 import { useNavigate } from 'react-router-dom';
+import { QueryKeys } from 'librechat-data-provider';
 import { useQueryClient } from '@tanstack/react-query';
-import { QueryKeys, Constants } from 'librechat-data-provider';
-import type { TMessage, TStartupConfig } from 'librechat-data-provider';
-import { NewChatIcon, MobileSidebar, Sidebar } from '~/components/svg';
-import { getDefaultModelSpec, getModelSpecPreset } from '~/utils';
-import { TooltipAnchor, Button } from '~/components/ui';
+import { TooltipAnchor, NewChatIcon, MobileSidebar, Sidebar, Button } from '@librechat/client';
+import { CLOSE_SIDEBAR_ID, OPEN_SIDEBAR_ID } from '~/components/Chat/Menus/OpenSidebar';
 import { useLocalize, useNewConvo } from '~/hooks';
+import { clearMessagesCache } from '~/utils';
 import store from '~/store';
 
 export default function NewChat({
@@ -30,16 +28,21 @@ export default function NewChat({
   const localize = useLocalize();
   const { conversation } = store.useCreateConversationAtom(index);
 
+  const handleToggleNav = useCallback(() => {
+    toggleNav();
+    // Delay focus until after the sidebar animation completes (200ms)
+    setTimeout(() => {
+      document.getElementById(OPEN_SIDEBAR_ID)?.focus();
+    }, 250);
+  }, [toggleNav]);
+
   const clickHandler: React.MouseEventHandler<HTMLButtonElement> = useCallback(
     (e) => {
       if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
         window.open('/c/new', '_blank');
         return;
       }
-      queryClient.setQueryData<TMessage[]>(
-        [QueryKeys.messages, conversation?.conversationId ?? Constants.NEW_CONVO],
-        [],
-      );
+      clearMessagesCache(queryClient, conversation?.conversationId);
       queryClient.invalidateQueries([QueryKeys.messages]);
       newConvo();
       navigate('/c/new', { state: { focusChat: true } });
@@ -57,20 +60,26 @@ export default function NewChat({
           description={localize('com_nav_close_sidebar')}
           render={
             <Button
+              id={CLOSE_SIDEBAR_ID}
               size="icon"
               variant="outline"
               data-testid="close-sidebar-button"
               aria-label={localize('com_nav_close_sidebar')}
+              aria-expanded={true}
               className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
-              onClick={toggleNav}
+              onClick={handleToggleNav}
             >
-              <Sidebar className="max-md:hidden" />
-              <MobileSidebar className="m-1 inline-flex size-10 items-center justify-center md:hidden" />
+              <Sidebar aria-hidden="true" className="max-md:hidden" />
+              <MobileSidebar
+                aria-hidden="true"
+                className="m-1 inline-flex size-10 items-center justify-center md:hidden"
+              />
             </Button>
           }
         />
-        <div className="flex">
+        <div className="flex gap-0.5">
           {headerButtons}
+
           <TooltipAnchor
             description={localize('com_ui_new_chat')}
             render={
@@ -82,7 +91,7 @@ export default function NewChat({
                 className="rounded-full border-none bg-transparent p-2 hover:bg-surface-hover md:rounded-xl"
                 onClick={clickHandler}
               >
-                <NewChatIcon className="icon-md md:h-6 md:w-6" />
+                <NewChatIcon className="icon-lg text-text-primary" />
               </Button>
             }
           />

@@ -4,10 +4,11 @@ on:
     branches:
       - main
       - dev
+      - dev-staging
       - release/*
     paths:
       - 'api/**'
-      - 'packages/api/**'
+      - 'packages/**'
 jobs:
   tests_Backend:
     name: Run Backend unit tests

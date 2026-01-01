@@ -3,12 +3,19 @@ import { useMemo, useEffect, useState } from 'react';
 import { ShieldEllipsis } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { Permissions, SystemRoles, roleDefaults, PermissionTypes } from 'librechat-data-provider';
+import {
+  OGDialog,
+  OGDialogTitle,
+  OGDialogContent,
+  OGDialogTrigger,
+  Button,
+  Switch,
+  DropdownPopup,
+  useToastContext,
+} from '@librechat/client';
 import type { Control, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
-import { OGDialog, OGDialogTitle, OGDialogContent, OGDialogTrigger } from '~/components/ui';
 import { useUpdateMemoryPermissionsMutation } from '~/data-provider';
-import { Button, Switch, DropdownPopup } from '~/components/ui';
 import { useLocalize, useAuthContext } from '~/hooks';
-import { useToastContext } from '~/Providers';
 
 type FormValues = Record<Permissions, boolean>;
 
@@ -32,6 +39,7 @@ const LabelController: React.FC<LabelControllerProps> = ({ control, memoryPerm, 
           checked={field.value}
           onCheckedChange={field.onChange}
           value={field.value.toString()}
+          aria-label={label}
         />
       )}
     />
@@ -133,16 +141,17 @@ const AdminSettings = () => {
         <Button
           size={'sm'}
           variant={'outline'}
-          className="btn btn-neutral border-token-border-light relative h-9 w-full gap-1 rounded-lg font-medium"
+          className="btn btn-neutral border-token-border-light relative h-9 w-full gap-1 rounded-lg font-medium focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-primary"
+          aria-label={localize('com_ui_admin_settings')}
         >
           <ShieldEllipsis className="cursor-pointer" aria-hidden="true" />
           {localize('com_ui_admin_settings')}
         </Button>
       </OGDialogTrigger>
-      <OGDialogContent className="w-1/4 border-border-light bg-surface-primary text-text-primary">
-        <OGDialogTitle>{`${localize('com_ui_admin_settings')} - ${localize(
-          'com_ui_memories',
-        )}`}</OGDialogTitle>
+      <OGDialogContent className="border-border-light bg-surface-primary text-text-primary lg:w-1/4">
+        <OGDialogTitle>
+          {localize('com_ui_admin_settings_section', { section: localize('com_ui_memories') })}
+        </OGDialogTitle>
         <div className="p-2">
           {/* Role selection dropdown */}
           <div className="flex items-center gap-2">
@@ -197,7 +206,7 @@ const AdminSettings = () => {
               <button
                 type="submit"
                 disabled={isSubmitting || isLoading}
-                className="btn rounded bg-green-500 font-bold text-white transition-all hover:bg-green-600"
+                className="btn rounded bg-green-500 font-bold text-white transition-all hover:bg-green-600 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-primary"
               >
                 {localize('com_ui_save')}
               </button>

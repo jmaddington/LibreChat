@@ -1,53 +1,154 @@
 /* Memories */
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { Plus } from 'lucide-react';
+import { Trans } from 'react-i18next';
 import { matchSorter } from 'match-sorter';
 import { SystemRoles, PermissionTypes, Permissions } from 'librechat-data-provider';
-import type { TUserMemory } from 'librechat-data-provider';
 import {
-  Spinner,
-  EditIcon,
-  TrashIcon,
   Table,
   Input,
   Label,
   Button,
   Switch,
+  Spinner,
   TableRow,
   OGDialog,
+  EditIcon,
   TableHead,
   TableBody,
+  TrashIcon,
   TableCell,
   TableHeader,
   TooltipAnchor,
+  useToastContext,
   OGDialogTrigger,
-} from '~/components';
+  OGDialogTemplate,
+} from '@librechat/client';
+import type { TUserMemory } from 'librechat-data-provider';
 import {
-  useGetUserQuery,
-  useMemoriesQuery,
-  useDeleteMemoryMutation,
   useUpdateMemoryPreferencesMutation,
+  useDeleteMemoryMutation,
+  useMemoriesQuery,
+  useGetUserQuery,
 } from '~/data-provider';
 import { useLocalize, useAuthContext, useHasAccess } from '~/hooks';
-import OGDialogTemplate from '~/components/ui/OGDialogTemplate';
 import MemoryCreateDialog from './MemoryCreateDialog';
 import MemoryEditDialog from './MemoryEditDialog';
-import { useToastContext } from '~/Providers';
 import AdminSettings from './AdminSettings';
 import { cn } from '~/utils';
 
+const EditMemoryButton = ({ memory }: { memory: TUserMemory }) => {
+  const localize = useLocalize();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <MemoryEditDialog
+      open={open}
+      memory={memory}
+      onOpenChange={setOpen}
+      triggerRef={triggerRef as React.MutableRefObject<HTMLButtonElement | null>}
+    >
+      <OGDialogTrigger asChild>
+        <TooltipAnchor
+          description={localize('com_ui_edit_memory')}
+          render={
+            <Button
+              variant="ghost"
+              aria-label={localize('com_ui_bookmarks_edit')}
+              onClick={() => setOpen(!open)}
+              className="h-8 w-8 p-0"
+            >
+              <EditIcon />
+            </Button>
+          }
+        />
+      </OGDialogTrigger>
+    </MemoryEditDialog>
+  );
+};
+
+const DeleteMemoryButton = ({ memory }: { memory: TUserMemory }) => {
+  const localize = useLocalize();
+  const { showToast } = useToastContext();
+  const [open, setOpen] = useState(false);
+  const { mutate: deleteMemory } = useDeleteMemoryMutation();
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    setDeletingKey(memory.key);
+    deleteMemory(memory.key, {
+      onSuccess: () => {
+        showToast({
+          message: localize('com_ui_deleted'),
+          status: 'success',
+        });
+        setOpen(false);
+      },
+      onError: () =>
+        showToast({
+          message: localize('com_ui_error'),
+          status: 'error',
+        }),
+      onSettled: () => setDeletingKey(null),
+    });
+  };
+
+  return (
+    <OGDialog open={open} onOpenChange={setOpen}>
+      <OGDialogTrigger asChild>
+        <TooltipAnchor
+          description={localize('com_ui_delete_memory')}
+          render={
+            <Button
+              variant="ghost"
+              aria-label={localize('com_ui_delete')}
+              onClick={() => setOpen(!open)}
+              className="h-8 w-8 p-0"
+            >
+              {deletingKey === memory.key ? (
+                <Spinner className="size-4 animate-spin" />
+              ) : (
+                <TrashIcon className="size-4" />
+              )}
+            </Button>
+          }
+        />
+      </OGDialogTrigger>
+      <OGDialogTemplate
+        showCloseButton={false}
+        title={localize('com_ui_delete_memory')}
+        className="w-11/12 max-w-lg"
+        main={
+          <Label className="text-left text-sm font-medium">
+            <Trans
+              i18nKey="com_ui_delete_confirm_strong"
+              values={{ title: memory.key }}
+              components={{ strong: <strong /> }}
+            />
+          </Label>
+        }
+        selection={{
+          selectHandler: confirmDelete,
+          selectClasses:
+            'bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-800 text-white',
+          selectText: localize('com_ui_delete'),
+        }}
+      />
+    </OGDialog>
+  );
+};
+
+const pageSize = 10;
 export default function MemoryViewer() {
   const localize = useLocalize();
   const { user } = useAuthContext();
   const { data: userData } = useGetUserQuery();
   const { data: memData, isLoading } = useMemoriesQuery();
-  const { mutate: deleteMemory } = useDeleteMemoryMutation();
   const { showToast } = useToastContext();
   const [pageIndex, setPageIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
-  const pageSize = 10;
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [referenceSavedMemories, setReferenceSavedMemories] = useState(true);
 
   const updateMemoryPreferencesMutation = useUpdateMemoryPreferencesMutation({
@@ -119,108 +220,6 @@ export default function MemoryViewer() {
     return 'stroke-green-500';
   };
 
-  const EditMemoryButton = ({ memory }: { memory: TUserMemory }) => {
-    const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLDivElement>(null);
-
-    // Only show edit button if user has UPDATE permission
-    if (!hasUpdateAccess) {
-      return null;
-    }
-
-    return (
-      <MemoryEditDialog
-        open={open}
-        memory={memory}
-        onOpenChange={setOpen}
-        triggerRef={triggerRef as React.MutableRefObject<HTMLButtonElement | null>}
-      >
-        <OGDialogTrigger asChild>
-          <TooltipAnchor
-            description={localize('com_ui_edit_memory')}
-            render={
-              <Button
-                variant="ghost"
-                aria-label={localize('com_ui_bookmarks_edit')}
-                onClick={() => setOpen(!open)}
-                className="h-8 w-8 p-0"
-              >
-                <EditIcon />
-              </Button>
-            }
-          />
-        </OGDialogTrigger>
-      </MemoryEditDialog>
-    );
-  };
-
-  const DeleteMemoryButton = ({ memory }: { memory: TUserMemory }) => {
-    const [open, setOpen] = useState(false);
-
-    if (!hasUpdateAccess) {
-      return null;
-    }
-
-    const confirmDelete = async () => {
-      setDeletingKey(memory.key);
-      deleteMemory(memory.key, {
-        onSuccess: () => {
-          showToast({
-            message: localize('com_ui_deleted'),
-            status: 'success',
-          });
-          setOpen(false);
-        },
-        onError: () =>
-          showToast({
-            message: localize('com_ui_error'),
-            status: 'error',
-          }),
-        onSettled: () => setDeletingKey(null),
-      });
-    };
-
-    return (
-      <OGDialog open={open} onOpenChange={setOpen}>
-        <OGDialogTrigger asChild>
-          <TooltipAnchor
-            description={localize('com_ui_delete_memory')}
-            render={
-              <Button
-                variant="ghost"
-                aria-label={localize('com_ui_delete')}
-                onClick={() => setOpen(!open)}
-                className="h-8 w-8 p-0"
-              >
-                {deletingKey === memory.key ? (
-                  <Spinner className="size-4 animate-spin" />
-                ) : (
-                  <TrashIcon className="size-4" />
-                )}
-              </Button>
-            }
-          />
-        </OGDialogTrigger>
-        <OGDialogTemplate
-          showCloseButton={false}
-          title={localize('com_ui_delete_memory')}
-          className="w-11/12 max-w-lg"
-          main={
-            <Label className="text-left text-sm font-medium">
-              {localize('com_ui_delete_confirm')} &quot;{memory.key}&quot;?
-            </Label>
-          }
-          selection={{
-            selectHandler: confirmDelete,
-            selectClasses:
-              'bg-red-700 dark:bg-red-600 hover:bg-red-800 dark:hover:bg-red-800 text-white',
-            selectText: localize('com_ui_delete'),
-          }}
-        />
-      </OGDialog>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center p-4">
@@ -240,15 +239,23 @@ export default function MemoryViewer() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden">
+    <div className="flex h-full w-full flex-col">
       <div role="region" aria-label={localize('com_ui_memories')} className="mt-2 space-y-2">
-        <div className="flex items-center gap-4">
+        <div className="relative">
           <Input
-            placeholder={localize('com_ui_memories_filter')}
+            id="memory-search"
+            placeholder=" "
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label={localize('com_ui_memories_filter')}
+            className="peer"
           />
+          <Label
+            htmlFor="memory-search"
+            className="pointer-events-none absolute -top-1 left-3 w-auto origin-[0] translate-y-3 scale-100 rounded bg-background px-1 text-base text-text-secondary transition-transform duration-200 peer-placeholder-shown:translate-y-3 peer-placeholder-shown:scale-100 peer-focus:-translate-y-2 peer-focus:scale-75 peer-focus:text-text-primary peer-[:not(:placeholder-shown)]:-translate-y-2 peer-[:not(:placeholder-shown)]:scale-75"
+          >
+            {localize('com_ui_memories_filter')}
+          </Label>
         </div>
         {/* Memory Usage and Toggle Display */}
         {(memData?.tokenLimit || hasOptOutAccess) && (
@@ -299,7 +306,7 @@ export default function MemoryViewer() {
                 <Switch
                   checked={referenceSavedMemories}
                   onCheckedChange={handleMemoryToggle}
-                  aria-label={localize('com_ui_reference_saved_memories')}
+                  aria-label={localize('com_ui_use_memory')}
                   disabled={updateMemoryPreferencesMutation.isLoading}
                 />
               </div>
@@ -311,8 +318,12 @@ export default function MemoryViewer() {
           <div className="flex w-full justify-end">
             <MemoryCreateDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
               <OGDialogTrigger asChild>
-                <Button variant="outline" className="w-full bg-transparent">
-                  <Plus className="size-4" aria-hidden />
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
+                  aria-label={localize('com_ui_create_memory')}
+                >
+                  <Plus className="size-4" aria-hidden="true" />
                   {localize('com_ui_create_memory')}
                 </Button>
               </OGDialogTrigger>
@@ -368,7 +379,7 @@ export default function MemoryViewer() {
                     colSpan={hasUpdateAccess ? 2 : 1}
                     className="h-24 text-center text-sm text-text-secondary"
                   >
-                    {localize('com_ui_no_data')}
+                    {localize('com_ui_no_memories')}
                   </TableCell>
                 </TableRow>
               )}

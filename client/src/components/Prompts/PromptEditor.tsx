@@ -1,19 +1,18 @@
 import { useMemo, memo } from 'react';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import supersub from 'remark-supersub';
 import { useRecoilValue } from 'recoil';
 import { EditIcon } from 'lucide-react';
-import type { PluggableList } from 'unified';
-import rehypeHighlight from 'rehype-highlight';
-import { Controller, useFormContext, useFormState } from 'react-hook-form';
-import remarkGfm from 'remark-gfm';
-import rehypeKatex from 'rehype-katex';
-import remarkMath from 'remark-math';
-import supersub from 'remark-supersub';
 import ReactMarkdown from 'react-markdown';
-import { codeNoExecution } from '~/components/Chat/Messages/Content/Markdown';
+import rehypeHighlight from 'rehype-highlight';
+import { SaveIcon, CrossIcon, TextareaAutosize } from '@librechat/client';
+import { Controller, useFormContext, useFormState } from 'react-hook-form';
+import type { PluggableList } from 'unified';
+import { codeNoExecution } from '~/components/Chat/Messages/Content/MarkdownComponents';
 import AlwaysMakeProd from '~/components/Prompts/Groups/AlwaysMakeProd';
-import { SaveIcon, CrossIcon } from '~/components/svg';
 import VariablesDropdown from './VariablesDropdown';
-import { TextareaAutosize } from '~/components/ui';
 import { PromptVariableGfm } from './Markdown';
 import { PromptsEditorMode } from '~/common';
 import { cn, langSubset } from '~/utils';
@@ -56,7 +55,8 @@ const PromptEditor: React.FC<Props> = ({ name, isEditing, setIsEditing }) => {
 
   return (
     <div className="flex max-h-[85vh] flex-col sm:max-h-[85vh]">
-      <h2 className="flex items-center justify-between rounded-t-xl border border-border-light py-1.5 pl-3 text-sm font-semibold text-text-primary sm:py-2 sm:pl-4 sm:text-base">
+      <h2 className="sr-only">{localize('com_ui_control_bar')}</h2>
+      <div className="flex items-center justify-between rounded-t-xl border border-border-light py-1.5 pl-3 text-sm font-semibold text-text-primary sm:py-2 sm:pl-4 sm:text-base">
         <span className="max-w-[200px] truncate sm:max-w-none">
           {localize('com_ui_prompt_text')}
         </span>
@@ -79,7 +79,7 @@ const PromptEditor: React.FC<Props> = ({ name, isEditing, setIsEditing }) => {
             />
           </button>
         </div>
-      </h2>
+      </div>
       <div
         role="button"
         className={cn(
@@ -119,6 +119,7 @@ const PromptEditor: React.FC<Props> = ({ name, isEditing, setIsEditing }) => {
                     setIsEditing(false);
                   }
                 }}
+                aria-label={localize('com_ui_prompt_input')}
               />
             ) : (
               <div

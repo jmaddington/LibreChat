@@ -25,11 +25,58 @@ export enum EModelEndpoint {
   agents = 'agents',
   custom = 'custom',
   bedrock = 'bedrock',
-  /** @deprecated */
-  chatGPTBrowser = 'chatGPTBrowser',
-  /** @deprecated */
-  gptPlugins = 'gptPlugins',
 }
+
+/** Mirrors `@librechat/agents` providers */
+export enum Providers {
+  OPENAI = 'openAI',
+  ANTHROPIC = 'anthropic',
+  AZURE = 'azureOpenAI',
+  GOOGLE = 'google',
+  VERTEXAI = 'vertexai',
+  BEDROCK = 'bedrock',
+  MISTRALAI = 'mistralai',
+  MISTRAL = 'mistral',
+  DEEPSEEK = 'deepseek',
+  OPENROUTER = 'openrouter',
+  XAI = 'xai',
+}
+
+/**
+ * Endpoints that support direct PDF processing in the agent system
+ */
+export const documentSupportedProviders = new Set<string>([
+  EModelEndpoint.anthropic,
+  EModelEndpoint.openAI,
+  EModelEndpoint.custom,
+  EModelEndpoint.azureOpenAI,
+  EModelEndpoint.google,
+  Providers.VERTEXAI,
+  Providers.MISTRALAI,
+  Providers.MISTRAL,
+  Providers.DEEPSEEK,
+  Providers.OPENROUTER,
+  Providers.XAI,
+]);
+
+const openAILikeProviders = new Set<string>([
+  Providers.OPENAI,
+  Providers.AZURE,
+  EModelEndpoint.custom,
+  Providers.MISTRALAI,
+  Providers.MISTRAL,
+  Providers.DEEPSEEK,
+  Providers.OPENROUTER,
+  Providers.XAI,
+]);
+
+export const isOpenAILikeProvider = (provider?: string | null): boolean => {
+  return openAILikeProviders.has(provider ?? '');
+};
+
+export const isDocumentSupportedProvider = (provider?: string | null): boolean => {
+  return documentSupportedProviders.has(provider ?? '');
+};
 
 export const paramEndpoints = new Set<EModelEndpoint | string>([
   EModelEndpoint.agents,
@@ -112,7 +159,9 @@ export enum ImageDetail {
 }
 
 export enum ReasoningEffort {
-  none = '',
+  unset = '',
+  none = 'none',
+  minimal = 'minimal',
   low = 'low',
   medium = 'medium',
   high = 'high',
@@ -123,6 +172,13 @@ export enum ReasoningSummary {
   auto = 'auto',
   concise = 'concise',
   detailed = 'detailed',
+}
+
+export enum Verbosity {
+  none = '',
+  low = 'low',
+  medium = 'medium',
+  high = 'high',
 }
 
 export const imageDetailNumeric = {
@@ -140,6 +196,7 @@ export const imageDetailValue = {
 export const eImageDetailSchema = z.nativeEnum(ImageDetail);
 export const eReasoningEffortSchema = z.nativeEnum(ReasoningEffort);
 export const eReasoningSummarySchema = z.nativeEnum(ReasoningSummary);
+export const eVerbositySchema = z.nativeEnum(Verbosity);
 
 export const defaultAssistantFormValues = {
   assistant: '',
@@ -167,12 +224,19 @@ export const defaultAgentFormValues = {
   tools: [],
   provider: {},
   projectIds: [],
+  edges: [],
   artifacts: '',
+  /** @deprecated Use ACL permissions instead */
   isCollaborative: false,
   recursion_limit: undefined,
   [Tools.execute_code]: false,
   [Tools.file_search]: false,
   [Tools.web_search]: false,
+  category: 'general',
+  support_contact: {
+    name: '',
+    email: '',
+  },
 };
 
 export const ImageVisionTool: FunctionTool = {
@@ -208,13 +272,13 @@ export const openAISettings = {
     default: 1 as const,
   },
   presence_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
   },
   frequency_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
@@ -269,7 +333,7 @@ export const googleSettings = {
   },
   thinkingBudget: {
     min: -1 as const,
-    max: 32768 as const,
+    max: 32000 as const,
     step: 1 as const,
     /** `-1` = Dynamic Thinking, meaning the model will adjust
      * the budget based on the complexity of the request.
@@ -279,6 +343,8 @@ export const googleSettings = {
 };
 
 const ANTHROPIC_MAX_OUTPUT = 128000 as const;
+const CLAUDE_4_64K_MAX_OUTPUT = 64000 as const;
+const CLAUDE_32K_MAX_OUTPUT = 32000 as const;
 const DEFAULT_MAX_OUTPUT = 8192 as const;
 const LEGACY_ANTHROPIC_MAX_OUTPUT = 4096 as const;
 export const anthropicSettings = {
@@ -309,18 +375,38 @@ export const anthropicSettings = {
     step: 1 as const,
     default: DEFAULT_MAX_OUTPUT,
     reset: (modelName: string) => {
-      if (/claude-3[-.]5-sonnet/.test(modelName) || /claude-3[-.]7/.test(modelName)) {
-        return DEFAULT_MAX_OUTPUT;
+      if (/claude-(?:sonnet|haiku)[-.]?[4-9]/.test(modelName)) {
+        return CLAUDE_4_64K_MAX_OUTPUT;
       }
 
-      return 4096;
+      if (/claude-opus[-.]?(?:[5-9]|4[-.]?([5-9]|\d{2,}))/.test(modelName)) {
+        return CLAUDE_4_64K_MAX_OUTPUT;
+      }
+
+      if (/claude-opus[-.]?[4-9]/.test(modelName)) {
+        return CLAUDE_32K_MAX_OUTPUT;
+      }
+
+      return DEFAULT_MAX_OUTPUT;
     },
     set: (value: number, modelName: string) => {
-      if (
-        !(/claude-3[-.]5-sonnet/.test(modelName) || /claude-3[-.]7/.test(modelName)) &&
-        value > LEGACY_ANTHROPIC_MAX_OUTPUT
-      ) {
-        return LEGACY_ANTHROPIC_MAX_OUTPUT;
+      if (/claude-(?:sonnet|haiku)[-.]?[4-9]/.test(modelName) && value > CLAUDE_4_64K_MAX_OUTPUT) {
+        return CLAUDE_4_64K_MAX_OUTPUT;
+      }
+
+      if (/claude-opus[-.]?(?:[5-9]|4[-.]?([5-9]|\d{2,}))/.test(modelName)) {
+        if (value > CLAUDE_4_64K_MAX_OUTPUT) {
+          return CLAUDE_4_64K_MAX_OUTPUT;
+        }
+        return value;
+      }
+
+      if (/claude-opus[-.]?[4-9]/.test(modelName) && value > CLAUDE_32K_MAX_OUTPUT) {
+        return CLAUDE_32K_MAX_OUTPUT;
+      }
+
+      if (value > ANTHROPIC_MAX_OUTPUT) {
+        return ANTHROPIC_MAX_OUTPUT;
       }
 
       return value;
@@ -352,6 +438,9 @@ export const anthropicSettings = {
       default: LEGACY_ANTHROPIC_MAX_OUTPUT,
     },
   },
+  web_search: {
+    default: false as const,
+  },
 };
 
 export const agentsSettings = {
@@ -371,13 +460,13 @@ export const agentsSettings = {
     default: 1 as const,
   },
   presence_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
   },
   frequency_penalty: {
-    min: 0 as const,
+    min: -2 as const,
     max: 2 as const,
     step: 0.01 as const,
     default: 0 as const,
@@ -436,16 +525,6 @@ export type TInput = {
   inputStr: string;
 };
 
-export type TResPlugin = {
-  plugin: string;
-  input: string;
-  thought: string;
-  loading?: boolean;
-  outputs?: string;
-  latest?: string;
-  inputs?: TInput[];
-};
-
 export const tExampleSchema = z.object({
   input: z.object({
     content: z.string(),
@@ -456,39 +535,6 @@ export const tExampleSchema = z.object({
 });
 
 export type TExample = z.infer<typeof tExampleSchema>;
-
-export enum EAgent {
-  functions = 'functions',
-  classic = 'classic',
-}
-
-export const agentOptionSettings = {
-  model: {
-    default: 'gpt-4o-mini',
-  },
-  temperature: {
-    min: 0,
-    max: 1,
-    step: 0.01,
-    default: 0,
-  },
-  agent: {
-    default: EAgent.functions,
-    options: [EAgent.functions, EAgent.classic],
-  },
-  skipCompletion: {
-    default: true,
-  },
-};
-
-export const eAgentOptionsSchema = z.nativeEnum(EAgent);
-
-export const tAgentOptionsSchema = z.object({
-  agent: z.string().default(EAgent.functions),
-  skipCompletion: z.boolean().default(agentOptionSettings.skipCompletion.default),
-  model: z.string(),
-  temperature: z.number().default(agentOptionSettings.temperature.default),
-});
 
 export const tMessageSchema = z.object({
   messageId: z.string(),
@@ -525,33 +571,46 @@ export const tMessageSchema = z.object({
   /* frontend components */
   iconURL: z.string().nullable().optional(),
   feedback: feedbackSchema.optional(),
+  /** metadata */
+  metadata: z.record(z.unknown()).optional(),
 });
 
 export type MemoryArtifact = {
   key: string;
   value?: string;
   tokenCount?: number;
-  type: 'update' | 'delete';
+  type: 'update' | 'delete' | 'error';
+};
+
+export type UIResource = {
+  resourceId: string;
+  uri: string;
+  mimeType?: string;
+  text?: string;
+  [key: string]: unknown;
 };
 
 export type TAttachmentMetadata = {
   type?: Tools;
   messageId: string;
   toolCallId: string;
-  [Tools.web_search]?: SearchResultData;
   [Tools.memory]?: MemoryArtifact;
+  [Tools.ui_resources]?: UIResource[];
+  [Tools.web_search]?: SearchResultData;
+  [Tools.file_search]?: SearchResultData;
 };
 
 export type TAttachment =
   | (TFile & TAttachmentMetadata)
   | (Pick<TFile, 'filename' | 'filepath' | 'conversationId'> & {
       expiresAt: number;
-    } & TAttachmentMetadata);
+    } & TAttachmentMetadata)
+  | (Partial<Pick<TFile, 'filename' | 'filepath'>> &
+      Pick<TFile, 'conversationId'> &
+      TAttachmentMetadata);
 
 export type TMessage = z.input<typeof tMessageSchema> & {
   children?: TMessage[];
-  plugin?: TResPlugin | null;
-  plugins?: TResPlugin[];
   content?: TMessageContentParts[];
   files?: Partial<TFile>[];
   depth?: number;
@@ -601,14 +660,14 @@ export const tConversationSchema = z.object({
   userLabel: z.string().optional(),
   model: z.string().nullable().optional(),
   promptPrefix: z.string().nullable().optional(),
-  temperature: z.number().optional(),
+  temperature: z.number().nullable().optional(),
   topP: z.number().optional(),
   topK: z.number().optional(),
   top_p: z.number().optional(),
   frequency_penalty: z.number().optional(),
   presence_penalty: z.number().optional(),
   parentMessageId: z.string().optional(),
-  maxOutputTokens: coerceNumber.optional(),
+  maxOutputTokens: coerceNumber.nullable().optional(),
   maxContextTokens: coerceNumber.optional(),
   max_tokens: coerceNumber.optional(),
   /* Anthropic */
@@ -616,6 +675,7 @@ export const tConversationSchema = z.object({
   system: z.string().optional(),
   thinking: z.boolean().optional(),
   thinkingBudget: coerceNumber.optional(),
+  stream: z.boolean().optional(),
   /* artifacts */
   artifacts: z.string().optional(),
   /* google */
@@ -623,6 +683,7 @@ export const tConversationSchema = z.object({
   examples: z.array(tExampleSchema).optional(),
   /* DB */
   tags: z.array(z.string()).optional(),
+  pinnedOrder: z.number().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   /* Files */
@@ -633,10 +694,14 @@ export const tConversationSchema = z.object({
   /* OpenAI: Reasoning models only */
   reasoning_effort: eReasoningEffortSchema.optional().nullable(),
   reasoning_summary: eReasoningSummarySchema.optional().nullable(),
+  /* OpenAI: Verbosity control */
+  verbosity: eVerbositySchema.optional().nullable(),
   /* OpenAI: use Responses API */
   useResponsesApi: z.boolean().optional(),
-  /* Google: use Search Grounding */
-  grounding: z.boolean().optional(),
+  /* OpenAI Responses API / Anthropic API / Google API */
+  web_search: z.boolean().optional(),
+  /* disable streaming */
+  disableStreaming: z.boolean().optional(),
   /* assistant */
   assistant_id: z.string().optional(),
   /* agents */
@@ -658,10 +723,10 @@ export const tConversationSchema = z.object({
   iconURL: z.string().nullable().optional(),
   /* temporary chat */
   expiredAt: z.string().nullable().optional(),
+  /* file token limits */
+  fileTokenLimit: coerceNumber.optional(),
   /** @deprecated */
   resendImages: z.boolean().optional(),
-  /** @deprecated */
-  agentOptions: tAgentOptionsSchema.nullable().optional(),
   /** @deprecated Prefer `modelLabel` over `chatGptLabel` */
   chatGptLabel: z.string().nullable().optional(),
 });
@@ -738,9 +803,13 @@ export const tQueryParamsSchema = tConversationSchema
     /** @endpoints openAI, custom, azureOpenAI */
     reasoning_summary: true,
     /** @endpoints openAI, custom, azureOpenAI */
+    verbosity: true,
+    /** @endpoints openAI, custom, azureOpenAI */
     useResponsesApi: true,
-    /** @endpoints google */
-    grounding: true,
+    /** @endpoints openAI, anthropic, google */
+    web_search: true,
+    /** @endpoints openAI, custom, azureOpenAI */
+    disableStreaming: true,
     /** @endpoints google, anthropic, bedrock */
     topP: true,
     /** @endpoints google, anthropic */
@@ -768,6 +837,8 @@ export const tQueryParamsSchema = tConversationSchema
      * https://platform.openai.com/docs/api-reference/runs/createRun#runs-createrun-instructions
      * */
     instructions: true,
+    /** @endpoints openAI, google, anthropic */
+    fileTokenLimit: true,
   })
   .merge(
     z.object({
@@ -823,7 +894,8 @@ export const googleBaseSchema = tConversationSchema.pick({
   topK: true,
   thinking: true,
   thinkingBudget: true,
-  grounding: true,
+  web_search: true,
+  fileTokenLimit: true,
   iconURL: true,
   greeting: true,
   spec: true,
@@ -855,79 +927,10 @@ export const googleGenConfigSchema = z
         thinkingBudget: coerceNumber.optional(),
       })
       .optional(),
-    grounding: z.boolean().optional(),
+    web_search: z.boolean().optional(),
   })
   .strip()
   .optional();
-
-const gptPluginsBaseSchema = tConversationSchema.pick({
-  model: true,
-  modelLabel: true,
-  chatGptLabel: true,
-  promptPrefix: true,
-  temperature: true,
-  artifacts: true,
-  top_p: true,
-  presence_penalty: true,
-  frequency_penalty: true,
-  tools: true,
-  agentOptions: true,
-  iconURL: true,
-  greeting: true,
-  spec: true,
-  maxContextTokens: true,
-});
-
-export const gptPluginsSchema = gptPluginsBaseSchema
-  .transform((obj) => {
-    const result = {
-      ...obj,
-      model: obj.model ?? 'gpt-3.5-turbo',
-      chatGptLabel: obj.chatGptLabel ?? obj.modelLabel ?? null,
-      promptPrefix: obj.promptPrefix ?? null,
-      temperature: obj.temperature ?? 0.8,
-      top_p: obj.top_p ?? 1,
-      presence_penalty: obj.presence_penalty ?? 0,
-      frequency_penalty: obj.frequency_penalty ?? 0,
-      tools: obj.tools ?? [],
-      agentOptions: obj.agentOptions ?? {
-        agent: EAgent.functions,
-        skipCompletion: true,
-        model: 'gpt-3.5-turbo',
-        temperature: 0,
-      },
-      iconURL: obj.iconURL ?? undefined,
-      greeting: obj.greeting ?? undefined,
-      spec: obj.spec ?? undefined,
-      maxContextTokens: obj.maxContextTokens ?? undefined,
-    };
-
-    if (obj.modelLabel != null && obj.modelLabel !== '') {
-      result.modelLabel = null;
-    }
-
-    return result;
-  })
-  .catch(() => ({
-    model: 'gpt-3.5-turbo',
-    chatGptLabel: null,
-    promptPrefix: null,
-    temperature: 0.8,
-    top_p: 1,
-    presence_penalty: 0,
-    frequency_penalty: 0,
-    tools: [],
-    agentOptions: {
-      agent: EAgent.functions,
-      skipCompletion: true,
-      model: 'gpt-3.5-turbo',
-      temperature: 0,
-    },
-    iconURL: undefined,
-    greeting: undefined,
-    spec: undefined,
-    maxContextTokens: undefined,
-  }));
 
 export function removeNullishValues<T extends Record<string, unknown>>(
   obj: T,
@@ -1071,7 +1074,11 @@ export const openAIBaseSchema = tConversationSchema.pick({
   max_tokens: true,
   reasoning_effort: true,
   reasoning_summary: true,
+  verbosity: true,
   useResponsesApi: true,
+  web_search: true,
+  disableStreaming: true,
+  fileTokenLimit: true,
 });
 
 export const openAISchema = openAIBaseSchema
@@ -1115,52 +1122,14 @@ export const anthropicBaseSchema = tConversationSchema.pick({
   greeting: true,
   spec: true,
   maxContextTokens: true,
+  web_search: true,
+  fileTokenLimit: true,
+  stop: true,
+  stream: true,
 });
 
 export const anthropicSchema = anthropicBaseSchema
   .transform((obj) => removeNullishValues(obj))
-  .catch(() => ({}));
-
-export const compactPluginsSchema = gptPluginsBaseSchema
-  .transform((obj) => {
-    const newObj: Partial<TConversation> = { ...obj };
-    if (newObj.modelLabel === null) {
-      delete newObj.modelLabel;
-    }
-    if (newObj.chatGptLabel === null) {
-      delete newObj.chatGptLabel;
-    }
-    if (newObj.promptPrefix === null) {
-      delete newObj.promptPrefix;
-    }
-    if (newObj.temperature === 0.8) {
-      delete newObj.temperature;
-    }
-    if (newObj.top_p === 1) {
-      delete newObj.top_p;
-    }
-    if (newObj.presence_penalty === 0) {
-      delete newObj.presence_penalty;
-    }
-    if (newObj.frequency_penalty === 0) {
-      delete newObj.frequency_penalty;
-    }
-    if (newObj.tools?.length === 0) {
-      delete newObj.tools;
-    }
-
-    if (
-      newObj.agentOptions &&
-      newObj.agentOptions.agent === EAgent.functions &&
-      newObj.agentOptions.skipCompletion === true &&
-      newObj.agentOptions.model === 'gpt-3.5-turbo' &&
-      newObj.agentOptions.temperature === 0
-    ) {
-      delete newObj.agentOptions;
-    }
-
-    return removeNullishValues(newObj);
-  })
   .catch(() => ({}));
 
 export const tBannerSchema = z.object({
@@ -1171,6 +1140,7 @@ export const tBannerSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   isPublic: z.boolean(),
+  persistable: z.boolean().default(false),
 });
 export type TBanner = z.infer<typeof tBannerSchema>;
 

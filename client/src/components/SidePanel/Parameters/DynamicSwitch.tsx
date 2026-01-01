@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { DynamicSettingProps } from 'librechat-data-provider';
-import { Label, Switch, HoverCard, HoverCardTrigger } from '~/components/ui';
+import { Label, Switch, HoverCard, HoverCardTrigger } from '@librechat/client';
 import { TranslationKeys, useLocalize, useParameterEffects } from '~/hooks';
 import { useChatContext } from '~/Providers';
 import OptionHover from './OptionHover';
@@ -56,7 +56,7 @@ function DynamicSwitch({
               {showDefault && (
                 <small className="opacity-40">
                   ({localize('com_endpoint_default')}:{' '}
-                  {defaultValue != null ? 'com_ui_on' : 'com_ui_off'})
+                  {defaultValue != null ? localize('com_ui_on') : localize('com_ui_off')})
                 </small>
               )}
             </Label>
@@ -67,6 +67,9 @@ function DynamicSwitch({
             onCheckedChange={handleCheckedChange}
             disabled={readonly}
             className="flex"
+            aria-label={
+              labelCode ? (localize(label as TranslationKeys) ?? label) : label || settingKey
+            }
           />
         </HoverCardTrigger>
         {description && (

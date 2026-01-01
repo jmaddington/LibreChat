@@ -1,6 +1,5 @@
-import { logger } from '@librechat/data-schemas';
+import { logger, decrypt } from '@librechat/data-schemas';
 import type { IPluginAuth, PluginAuthMethods } from '@librechat/data-schemas';
-import { decrypt } from '../crypto/encryption';
 
 export interface GetPluginAuthMapParams {
   userId: string;
@@ -76,6 +75,11 @@ export async function getPluginAuthMap({
     await Promise.all(decryptionPromises);
     return authMap;
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const plugins = pluginKeys?.join(', ') ?? 'all requested';
+    logger.warn(
+      `[getPluginAuthMap] Failed to fetch auth values for userId ${userId}, plugins: ${plugins}: ${message}`,
+    );
     if (!throwError) {
       /** Empty objects for each plugin key on error */
       return pluginKeys.reduce((acc, key) => {
@@ -83,11 +87,6 @@ export async function getPluginAuthMap({
         return acc;
       }, {} as PluginAuthMap);
     }
-
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.error(
-      `[getPluginAuthMap] Failed to fetch auth values for userId ${userId}, plugins: ${pluginKeys.join(', ')}: ${message}`,
-    );
     throw error;
   }
 }

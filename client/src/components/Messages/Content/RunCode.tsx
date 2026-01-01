@@ -1,15 +1,14 @@
-import debounce from 'lodash/debounce';
-import { Tools, AuthType } from 'librechat-data-provider';
-import { TerminalSquareIcon } from 'lucide-react';
 import React, { useMemo, useCallback, useEffect } from 'react';
+import debounce from 'lodash/debounce';
+import { TerminalSquareIcon } from 'lucide-react';
+import { Tools, AuthType } from 'librechat-data-provider';
+import { Spinner, useToastContext } from '@librechat/client';
 import type { CodeBarProps } from '~/common';
 import { useVerifyAgentToolAuth, useToolCallMutation } from '~/data-provider';
 import ApiKeyDialog from '~/components/SidePanel/Agents/Code/ApiKeyDialog';
 import { useLocalize, useCodeApiKeyForm } from '~/hooks';
 import { useMessageContext } from '~/Providers';
 import { cn, normalizeLanguage } from '~/utils';
-import { useToastContext } from '~/Providers';
-import { Spinner } from '~/components';
 
 const RunCode: React.FC<CodeBarProps> = React.memo(({ lang, codeRef, blockIndex }) => {
   const localize = useLocalize();
@@ -87,14 +86,14 @@ const RunCode: React.FC<CodeBarProps> = React.memo(({ lang, codeRef, blockIndex 
     <>
       <button
         type="button"
-        className={cn('ml-auto flex gap-2')}
+        className={cn('ml-auto flex gap-2 rounded-sm focus:outline focus:outline-white')}
         onClick={debouncedExecute}
         disabled={execute.isLoading}
       >
         {execute.isLoading ? (
           <Spinner className="animate-spin" size={18} />
         ) : (
-          <TerminalSquareIcon size={18} />
+          <TerminalSquareIcon size={18} aria-hidden="true" />
         )}
         {localize('com_ui_run_code')}
       </button>

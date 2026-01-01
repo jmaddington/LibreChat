@@ -1,9 +1,9 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { easings } from '@react-spring/web';
 import { EModelEndpoint } from 'librechat-data-provider';
+import { BirthdayIcon, TooltipAnchor, SplitText } from '@librechat/client';
 import { useChatContext, useAgentsMapContext, useAssistantsMapContext } from '~/Providers';
 import { useGetEndpointsQuery, useGetStartupConfig } from '~/data-provider';
-import { BirthdayIcon, TooltipAnchor, SplitText } from '~/components';
 import ConvoIcon from '~/components/Endpoints/ConvoIcon';
 import { useLocalize, useAuthContext } from '~/hooks';
 import { getIconEndpoint, getEntity } from '~/utils';
@@ -43,13 +43,7 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
 
   const endpointType = useMemo(() => {
     let ep = conversation?.endpoint ?? '';
-    if (
-      [
-        EModelEndpoint.chatGPTBrowser,
-        EModelEndpoint.azureOpenAI,
-        EModelEndpoint.gptPlugins,
-      ].includes(ep as EModelEndpoint)
-    ) {
+    if (ep === EModelEndpoint.azureOpenAI) {
       ep = EModelEndpoint.openAI;
     }
     return getIconEndpoint({
@@ -166,6 +160,7 @@ export default function Landing({ centerFormOnLanding }: { centerFormOnLanding: 
               <TooltipAnchor
                 className="absolute bottom-[27px] right-2"
                 description={localize('com_ui_happy_birthday')}
+                aria-label={localize('com_ui_happy_birthday')}
               >
                 <BirthdayIcon />
               </TooltipAnchor>

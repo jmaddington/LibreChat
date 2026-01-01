@@ -1,20 +1,32 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useRecoilValue } from 'recoil';
 import { useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import {
   QueryKeys,
   EModelEndpoint,
   isAgentsEndpoint,
   tQueryParamsSchema,
   isAssistantsEndpoint,
+  PermissionBits,
 } from 'librechat-data-provider';
-import type { TPreset, TEndpointsConfig, TStartupConfig } from 'librechat-data-provider';
+import type {
+  AgentListResponse,
+  TEndpointsConfig,
+  TStartupConfig,
+  TPreset,
+} from 'librechat-data-provider';
 import type { ZodAny } from 'zod';
-import { getConvoSwitchLogic, getModelSpecIconURL, removeUnavailableTools, logger } from '~/utils';
-import useDefaultConvo from '~/hooks/Conversations/useDefaultConvo';
+import {
+  clearModelForNonEphemeralAgent,
+  removeUnavailableTools,
+  getModelSpecIconURL,
+  getConvoSwitchLogic,
+  logger,
+} from '~/utils';
+import { useAuthContext, useAgentsMap, useDefaultConvo, useSubmitMessage } from '~/hooks';
 import { useChatContext, useChatFormContext } from '~/Providers';
-import useSubmitMessage from '~/hooks/Messages/useSubmitMessage';
+import { useGetAgentByIdQuery } from '~/data-provider';
 import store from '~/store';
 
 /**
@@ -73,6 +85,21 @@ const processValidSettings = (queryParams: Record<string, string>) => {
   return validSettings;
 };
 
+const injectAgentIntoAgentsMap = (queryClient: QueryClient, agent: any) => {
+  const editCacheKey = [QueryKeys.agents, { requiredPermission: PermissionBits.EDIT }];
+  const editCache = queryClient.getQueryData<AgentListResponse>(editCacheKey);
+
+  if (editCache?.data && !editCache.data.some((cachedAgent) => cachedAgent.id === agent.id)) {
+    // Inject agent into EDIT cache so dropdown can display it
+    const updatedCache = {
+      ...editCache,
+      data: [agent, ...editCache.data],
+    };
+    queryClient.setQueryData(editCacheKey, updatedCache);
+    logger.log('agent', 'Injected URL agent into cache:', agent);
+  }
+};
+
 /**
  * Hook that processes URL query parameters to initialize chat with specified settings and prompt.
  * Handles model switching, prompt auto-filling, and optional auto-submission with race condition protection.
@@ -103,6 +130,9 @@ export default function useQueryParams({
 
   const queryClient = useQueryClient();
   const { conversation, newConversation } = useChatContext();
+
+  const urlAgentId = searchParams.get('agent_id') || '';
+  const { data: urlAgent } = useGetAgentByIdQuery(urlAgentId);
 
   /**
    * Applies settings from URL query parameters to create a new conversation.
@@ -169,6 +199,12 @@ export default function useQueryParams({
         resetParams = { spec: null, iconURL: null, modelLabel: null };
         newPreset = { ...newPreset, ...resetParams };
       }
+
+      // Sync agent_id from newPreset to template, then clear model if non-ephemeral agent
+      if (newPreset.agent_id) {
+        template.agent_id = newPreset.agent_id;
+      }
+      clearModelForNonEphemeralAgent(template);
 
       const isModular = isCurrentModular && isNewModular && shouldSwitch;
       if (isExistingConversation && isModular) {
@@ -418,4 +454,12 @@ export default function useQueryParams({
       }
     }
   }, [conversation, processSubmission, areSettingsApplied]);
+
+  const { isAuthenticated } = useAuthContext();
+  const agentsMap = useAgentsMap({ isAuthenticated });
+  useEffect(() => {
+    if (urlAgent) {
+      injectAgentIntoAgentsMap(queryClient, urlAgent);
+    }
+  }, [urlAgent, queryClient, agentsMap]);
 }

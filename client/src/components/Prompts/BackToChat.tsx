@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { buttonVariants } from '~/components/ui';
+import { useNavigate } from 'react-router-dom';
+import { buttonVariants } from '@librechat/client';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
 
@@ -19,7 +19,7 @@ export default function BackToChat({ className }: { className?: string }) {
       href="/"
       onClick={clickHandler}
     >
-      <ArrowLeft className="icon-xs mr-2" />
+      <ArrowLeft className="icon-xs mr-2" aria-hidden="true" />
       {localize('com_ui_back_to_chat')}
     </a>
   );

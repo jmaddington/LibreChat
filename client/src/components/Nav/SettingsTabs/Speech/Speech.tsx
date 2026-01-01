@@ -1,7 +1,8 @@
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRecoilState } from 'recoil';
 import * as Tabs from '@radix-ui/react-tabs';
 import { Lightbulb, Cog } from 'lucide-react';
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useOnClickOutside, useMediaQuery } from '@librechat/client';
 import { useGetCustomConfigSpeechQuery } from 'librechat-data-provider/react-query';
 import {
   CloudBrowserVoicesSwitch,
@@ -20,9 +21,9 @@ import {
   EngineSTTDropdown,
   DecibelSelector,
 } from './STT';
-import { useOnClickOutside, useMediaQuery, useLocalize } from '~/hooks';
 import ConversationModeSwitch from './ConversationModeSwitch';
-import { cn, logger } from '~/utils';
+import { useLocalize } from '~/hooks';
+import { cn } from '~/utils';
 import store from '~/store';
 
 function Speech() {
@@ -145,8 +146,6 @@ function Speech() {
     }
   }, [engineTTS, setEngineTTS]);
 
-  logger.log({ sttExternal, ttsExternal });
-
   const contentRef = useRef(null);
   useOnClickOutside(contentRef, () => confirmClear && setConfirmClear(false), []);
 
@@ -168,7 +167,7 @@ function Speech() {
             value="simple"
             style={{ userSelect: 'none' }}
           >
-            <Lightbulb />
+            <Lightbulb aria-hidden="true" />
             {localize('com_ui_simple')}
           </Tabs.Trigger>
           <Tabs.Trigger
@@ -181,13 +180,13 @@ function Speech() {
             value="advanced"
             style={{ userSelect: 'none' }}
           >
-            <Cog />
+            <Cog aria-hidden="true" />
             {localize('com_ui_advanced')}
           </Tabs.Trigger>
         </Tabs.List>
       </div>
 
-      <Tabs.Content value={'simple'}>
+      <Tabs.Content value={'simple'} tabIndex={-1}>
         <div className="flex flex-col gap-3 text-sm text-text-primary">
           <SpeechToTextSwitch />
           <EngineSTTDropdown external={sttExternal} />
@@ -199,7 +198,7 @@ function Speech() {
         </div>
       </Tabs.Content>
 
-      <Tabs.Content value={'advanced'}>
+      <Tabs.Content value={'advanced'} tabIndex={-1}>
         <div className="flex flex-col gap-3 text-sm text-text-primary">
           <ConversationModeSwitch />
           <div className="mt-2 h-px bg-border-medium" role="none" />

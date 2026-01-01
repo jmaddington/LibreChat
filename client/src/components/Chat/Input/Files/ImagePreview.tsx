@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Maximize2 } from 'lucide-react';
-import { OGDialog, OGDialogContent } from '~/components/ui';
 import { FileSources } from 'librechat-data-provider';
+import { OGDialog, OGDialogContent } from '@librechat/client';
 import ProgressCircle from './ProgressCircle';
 import SourceIcon from './SourceIcon';
 import { cn } from '~/utils';
@@ -12,11 +12,6 @@ type styleProps = {
   backgroundPosition?: string;
   backgroundRepeat?: string;
 };
-
-interface CloseModalEvent {
-  stopPropagation: () => void;
-  preventDefault: () => void;
-}
 
 const ImagePreview = ({
   imageBase64,
@@ -35,53 +30,32 @@ const ImagePreview = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [previousActiveElement, setPreviousActiveElement] = useState<Element | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const openModal = useCallback(() => {
-    setPreviousActiveElement(document.activeElement);
     setIsModalOpen(true);
   }, []);
 
-  const closeModal = useCallback(
-    (e: CloseModalEvent): void => {
-      setIsModalOpen(false);
-      e.stopPropagation();
-      e.preventDefault();
-
-      if (
-        previousActiveElement instanceof HTMLElement &&
-        !previousActiveElement.closest('[data-skip-refocus="true"]')
-      ) {
-        previousActiveElement.focus();
-      }
-    },
-    [previousActiveElement],
-  );
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        closeModal(e);
-      }
-    },
-    [closeModal],
-  );
+  const handleOpenChange = useCallback((open: boolean) => {
+    setIsModalOpen(open);
+    if (!open && triggerRef.current) {
+      requestAnimationFrame(() => {
+        triggerRef.current?.focus({ preventScroll: true });
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (isModalOpen) {
-      document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
-      const closeButton = document.querySelector('[aria-label="Close full view"]') as HTMLElement;
-      if (closeButton) {
-        setTimeout(() => closeButton.focus(), 0);
-      }
+    } else {
+      document.body.style.overflow = 'unset';
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, handleKeyDown]);
+  }, [isModalOpen]);
 
   const baseStyle: styleProps = {
     backgroundSize: 'cover',
@@ -93,9 +67,9 @@ const ImagePreview = ({
 
   const style: styleProps = imageUrl
     ? {
-      ...baseStyle,
-      backgroundImage: `url(${imageUrl})`,
-    }
+        ...baseStyle,
+        backgroundImage: `url(${imageUrl})`,
+      }
     : baseStyle;
 
   if (typeof style.backgroundImage !== 'string' || style.backgroundImage.length === 0) {
@@ -117,6 +91,7 @@ const ImagePreview = ({
         onMouseLeave={() => setIsHovered(false)}
       >
         <button
+          ref={triggerRef}
           type="button"
           className="size-full overflow-hidden rounded-xl"
           style={style}
@@ -158,7 +133,7 @@ const ImagePreview = ({
         <SourceIcon source={source} aria-label={source ? `Source: ${source}` : undefined} />
       </div>
 
-      <OGDialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <OGDialog open={isModalOpen} onOpenChange={handleOpenChange}>
         <OGDialogContent
           showCloseButton={false}
           className="w-11/12 overflow-x-auto bg-transparent p-0 sm:w-auto"

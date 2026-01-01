@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { PermissionTypes, Permissions } from 'librechat-data-provider';
-import { OGDialog, OGDialogTemplate, Button, Label, Input } from '~/components/ui';
+import {
+  OGDialog,
+  OGDialogTemplate,
+  Button,
+  Label,
+  Input,
+  Spinner,
+  useToastContext,
+} from '@librechat/client';
 import { useCreateMemoryMutation } from '~/data-provider';
 import { useLocalize, useHasAccess } from '~/hooks';
-import { useToastContext } from '~/Providers';
-import { Spinner } from '~/components/svg';
 
 interface MemoryCreateDialogProps {
   open: boolean;
@@ -52,6 +58,10 @@ export default function MemoryCreateDialog({
           if (axiosError.response?.status === 409 || errorMessage.includes('already exists')) {
             errorMessage = localize('com_ui_memory_key_exists');
           }
+          // Check for key validation error (lowercase and underscores only)
+          else if (errorMessage.includes('lowercase letters and underscores')) {
+            errorMessage = localize('com_ui_memory_key_validation');
+          }
         }
       } else if (error.message) {
         errorMessage = error.message;
@@ -98,7 +108,7 @@ export default function MemoryCreateDialog({
       <OGDialogTemplate
         title={localize('com_ui_create_memory')}
         showCloseButton={false}
-        className="w-11/12 md:max-w-lg"
+        className="max-h-[90vh] w-11/12 overflow-y-auto md:max-w-lg"
         main={
           <div className="space-y-4">
             <div className="space-y-2">
@@ -137,6 +147,7 @@ export default function MemoryCreateDialog({
             onClick={handleSave}
             disabled={isLoading || !key.trim() || !value.trim()}
             className="text-white"
+            aria-label={localize('com_ui_create_memory')}
           >
             {isLoading ? <Spinner className="size-4" /> : localize('com_ui_create')}
           </Button>

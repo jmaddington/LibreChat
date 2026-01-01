@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  Tools,
   SSEOptionsSchema,
   MCPOptionsSchema,
   MCPServersSchema,
@@ -7,8 +8,19 @@ import {
   WebSocketOptionsSchema,
   StreamableHTTPOptionsSchema,
 } from 'librechat-data-provider';
-import type { JsonSchemaType, TPlugin } from 'librechat-data-provider';
-import type * as t from '@modelcontextprotocol/sdk/types.js';
+import type {
+  EmbeddedResource,
+  ListToolsResult,
+  ImageContent,
+  AudioContent,
+  TextContent,
+  Tool,
+} from '@modelcontextprotocol/sdk/types.js';
+import type { SearchResultData, UIResource, TPlugin } from 'librechat-data-provider';
+import type { TokenMethods, JsonSchemaType, IUser } from '@librechat/data-schemas';
+import type { FlowStateManager } from '~/flow/manager';
+import type { RequestBody } from '~/types/http';
+import type * as o from '~/mcp/oauth/types';
 
 export type StdioOptions = z.infer<typeof StdioOptionsSchema>;
 export type WebSocketOptions = z.infer<typeof WebSocketOptionsSchema>;
@@ -52,10 +64,10 @@ export interface MCPPrompt {
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
-export type MCPTool = z.infer<typeof t.ToolSchema>;
-export type MCPToolListResponse = z.infer<typeof t.ListToolsResultSchema>;
-export type ToolContentPart = t.TextContent | t.ImageContent | t.EmbeddedResource | t.AudioContent;
-export type ImageContent = Extract<ToolContentPart, { type: 'image' }>;
+export type MCPTool = Tool;
+export type MCPToolListResponse = ListToolsResult;
+export type ToolContentPart = TextContent | ImageContent | EmbeddedResource | AudioContent;
+export type { TextContent, ImageContent, EmbeddedResource, AudioContent };
 export type MCPToolCallResponse =
   | undefined
   | {
@@ -64,7 +76,16 @@ export type MCPToolCallResponse =
       isError?: boolean;
     };
 
-export type Provider = 'google' | 'anthropic' | 'openAI';
+export type Provider =
+  | 'google'
+  | 'anthropic'
+  | 'openai'
+  | 'azureopenai'
+  | 'openrouter'
+  | 'xai'
+  | 'deepseek'
+  | 'ollama'
+  | 'bedrock';
 
 export type FormattedContent =
   | {
@@ -93,14 +114,74 @@ export type FormattedContent =
       };
     };
 
-export type FormattedContentResult = [
-  string | FormattedContent[],
-  undefined | { content: FormattedContent[] },
-];
+export type FileSearchSource = {
+  fileId: string;
+  relevance: number;
+  fileName?: string;
+  metadata?: {
+    storageType?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+};
+
+export type Artifacts =
+  | {
+      content?: FormattedContent[];
+      [Tools.ui_resources]?: {
+        data: UIResource[];
+      };
+      [Tools.file_search]?: {
+        sources: FileSearchSource[];
+        fileCitations?: boolean;
+      };
+      [Tools.web_search]?: SearchResultData;
+      files?: Array<{ id: string; name: string }>;
+      session_id?: string;
+      file_ids?: string[];
+    }
+  | undefined;
+
+export type FormattedContentResult = [string | FormattedContent[], undefined | Artifacts];
 
 export type ImageFormatter = (item: ImageContent) => FormattedContent;
 
-export type FormattedToolResponse = [
-  string | FormattedContent[],
-  { content: FormattedContent[] } | undefined,
-];
+export type FormattedToolResponse = FormattedContentResult;
+
+export type ParsedServerConfig = MCPOptions & {
+  url?: string;
+  requiresOAuth?: boolean;
+  oauthMetadata?: Record<string, unknown> | null;
+  capabilities?: string;
+  tools?: string;
+  toolFunctions?: LCAvailableTools;
+  initDuration?: number;
+  updatedAt?: number;
+  dbId?: string;
+  /** True if access is only via agent (not directly shared with user) */
+  consumeOnly?: boolean;
+};
+
+export type AddServerResult = {
+  serverName: string;
+  config: ParsedServerConfig;
+};
+
+export interface BasicConnectionOptions {
+  serverName: string;
+  serverConfig: MCPOptions;
+}
+
+export interface OAuthConnectionOptions {
+  user: IUser;
+  useOAuth: true;
+  requestBody?: RequestBody;
+  customUserVars?: Record<string, string>;
+  flowManager: FlowStateManager<o.MCPOAuthTokens | null>;
+  tokenMethods?: TokenMethods;
+  signal?: AbortSignal;
+  oauthStart?: (authURL: string) => Promise<void>;
+  oauthEnd?: () => Promise<void>;
+  returnOnOAuth?: boolean;
+  connectionTimeout?: number;
+}

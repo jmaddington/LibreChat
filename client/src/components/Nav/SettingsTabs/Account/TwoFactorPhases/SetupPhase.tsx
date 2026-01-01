@@ -1,7 +1,7 @@
 import React from 'react';
 import { QrCode } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { Button, Spinner } from '~/components';
+import { Button, Spinner } from '@librechat/client';
 import { useLocalize } from '~/hooks';
 
 const fadeAnimation = {
@@ -33,7 +33,11 @@ export const SetupPhase: React.FC<SetupPhaseProps> = ({ isGenerating, onGenerate
           className="flex w-full"
           disabled={isGenerating}
         >
-          {isGenerating ? <Spinner className="size-5" /> : <QrCode className="size-5" />}
+          {isGenerating ? (
+            <Spinner className="size-5" />
+          ) : (
+            <QrCode className="size-5" aria-hidden="true" />
+          )}
           {isGenerating ? localize('com_ui_generating') : localize('com_ui_generate_qrcode')}
         </Button>
       </div>
