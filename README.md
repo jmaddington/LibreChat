@@ -1,7 +1,3 @@
-# About this Fork
-
-This fork is a personal project to add a few features to LibreChat and integrate features from other forks.
-
 [![ESLint Code Quality Checks](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/eslint-ci.yml)
 [![Backend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/backend-review.yml)
 [![Frontend Unit Tests](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml/badge.svg)](https://github.com/jmaddington/LibreChat/actions/workflows/frontend-review.yml)
@@ -10,40 +6,67 @@ This fork is a personal project to add a few features to LibreChat and integrate
 <!-- Docker Build Only badge will appear after first workflow run -->
 [![Docker Build Only](https://img.shields.io/badge/Docker%20Build%20Only-Ready-blue)](https://github.com/jmaddington/LibreChat/actions/workflows/deploy-jm-build-only.yml)
 
+# About this Fork
+
+This fork began as personal project to add a few features to LibreChat and integrate features from other forks, but is becoming a standalone fork to move faster.
+
 ## Branches
+
 `main` - The main branch for this fork for production use. Stable-ish, but has been at least minimally tested.
 `main-upstream` - A clone of the upstream main branch.
-`tracking/YYYY/MM/DD-XX` - Tracking branches for specific merges from upstream, with date and sequence number.
 `new/feature/X` - Branches for new features, kept open until they are feature complete and merged.
 
 ## Known Changes from danny-avila/LibreChat
+
 - E2B.dev code interpreter added to the tools list
 - Web Navigator plugin added to the tools list.
 - QuickChart plugin added to the tools list.
 - TimeAPI.io plugin added to the tools list.
+- Conversation pinning (based on [henricook's work](https://github.com/danny-avila/LibreChat/pull/7550))
+- Left sidebar resize
+- Collections Tool added
 - ✅ MERGED UPSTREAM - OpenWeather - Weather plugin added to the tools list.
 - ✅ MERGED UPSTREAM - Flux AI plugin added to the tools list.
 
 
 ## Merge Instructions
 
-To merge with upstream ensure that the `main-upstream` branch is up to date with the upstream `main` branch. Then run the following commands:
+The following files should be taken from our fork (not in upstream):
 
-Then, create a new tracking branch from it, `tracking/YYYY/MM/DD-XX` and begin a merge from `dev/main` or `main` into the new tracking branch.
+**Workflows:**
+- `.github/workflows/jm-assign-copilot-reviewer.yml`
+- `.github/workflows/jm-backend-review.yml`
+- `.github/workflows/jm-build-only.yml`
+- `.github/workflows/jm-deploy-beta.yml`
+- `.github/workflows/jm-deploy.yml`
+- `.github/workflows/jm-eslint-ci.yml`
+- `.github/workflows/jm-frontend-review.yml`
+- `.github/workflows/jm-upstream-sync.yml`
 
-Most of the files should be taken from upstream. verbatim. That includes the package and package lock files, until later in this process.
+**Tool files:**
+- `api/app/clients/tools/structured/CollectionExport.js`
+- `api/app/clients/tools/structured/Collections.js`
+- `api/app/clients/tools/structured/E2BCode.js`
+- `api/app/clients/tools/structured/E2BCode.md`
+- `api/app/clients/tools/structured/QuickLCMemory.js` *(alpha, likely to be removed)*
+- `api/app/clients/tools/structured/Quickchart.js`
+- `api/app/clients/tools/structured/TimeAPI.js`
+- `api/app/clients/tools/structured/WebNavigator.js`
+- `api/app/clients/tools/structured/WordPress.js` *(alpha, likely to be removed)*
 
-The following files should be taken from out fork:
+**Assets:**
+- `client/public/assets/collections-tree.png`
+- `client/public/assets/collections-trees-export.png`
+- `client/public/assets/e2b_symbol.png`
+- `client/public/assets/quickchart_bar_chart_logo.svg`
+- `client/public/assets/quicklcmemory.png`
+- `client/public/assets/timeapi.svg`
+- `client/public/assets/webnavigator.png`
 
- - `.github/workflows/jm*.yml` - These are the CI/CD workflows for this fork.
- - `.devcontainer/*` - This is the devcontainer for this fork.
- - `api/app/clients/tools/structured/E2BCode.js`
- - `api/app/clients/tools/structured/E2BCode.md`
- - `api/app/clients/tools/structured/WebNavigator.js`
- - `api/app/clients/tools/structured/TimeAPI.js`
- - `api/app/clients/tools/structured/QuickChart.js`
- - `client/public/assets/*` related to the tools listed above.
-- All `.sh` files.
+**Shell scripts (fork-only):**
+- `build-local.sh`
+- `clean.sh`
+- `config/setup-embedding-cron.sh`
 
 These files need to be merged:
 
@@ -57,12 +80,4 @@ After you've merged but before you commit, run `./clean.sh` _from inside the dev
 This will update the package and package lock files, so long as you properly took the files from upstream.
 
 
-After the merge is complete, run `./build-local.sh` to ensure things build on your machine. After that, push the tracking branch
-and open a PR from the tracking branch into `main` or `dev/main` as appropriate.
-
-### Why E2B?
-LibreChat recently introduced their own code interpreter service. It's affordable, integrates seamlessly with their platform, and provides a viable revenue stream. So why not use it?
-
-For our internal needs, however, we require a code interpreter with network access—a feature not offered by LibreChat's interpreter for safety reasons. E2B.dev provides an excellent alternative that meets our specific requirements.
-
-***WE STILL LOVE LIBRECHAT!*** In fact, we're proud to be monthly sponsors. Our choice to use E2B.dev is not about detracting from LibreChat's service; we simply need additional functionality to fulfill our unique needs.
+After the merge is complete, run `./build-local.sh` to ensure things build on your machine. After that, push the tracking branch dnd open a PR from the tracking branch into `main` or `beta` as appropriate.
