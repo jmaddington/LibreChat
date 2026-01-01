@@ -4,9 +4,13 @@ on:
   # Run on a daily schedule
   schedule:
     - cron: '0 0 * * *'  # Runs at midnight UTC every day
-  
+
   # Allow manual triggering
   workflow_dispatch:
+
+permissions:
+  contents: write
+  workflows: write
 
 jobs:
   upstream-sync:
