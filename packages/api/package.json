@@ -102,7 +102,7 @@
     "keyv-file": "^5.1.2",
     "librechat-data-provider": "*",
     "memorystore": "^1.6.7",
-    "mongoose": "^8.12.1",
+    "mongoose": "^8.23.1",
     "node-fetch": "2.7.0",
     "rate-limit-redis": "^4.2.0",
     "tiktoken": "^1.0.15",
